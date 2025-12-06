@@ -460,24 +460,55 @@ export default function AssessmentDetailContent({
 
       {assessment.status === "running" ? (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-sky-500/30 bg-card p-6">
+          <div className="rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-50/50 to-cyan-50/50 dark:from-sky-950/20 dark:to-cyan-950/20 p-8">
             <div className="flex flex-col items-center gap-4 text-center">
               <div className="relative">
-                <div className="w-16 h-16 border-4 border-border border-t-primary rounded-full animate-spin"></div>
+                <div className="w-20 h-20 border-4 border-border border-t-primary rounded-full animate-spin"></div>
                 <div className="absolute inset-0 border-4 border-transparent border-r-cyan-500 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+                <div className="absolute inset-0 flex items-center justify-center text-2xl">🔍</div>
               </div>
-              <div>
-                <h3 className="text-xl font-display font-semibold text-foreground mb-2">
-                  Scan in Progress
+              <div className="space-y-3">
+                <h3 className="text-2xl font-display font-bold text-foreground">
+                  🚀 Scan in Progress
                 </h3>
-                <p className="text-sm text-muted-foreground font-display">
-                  Running security assessment... Real-time logs are shown below.
+                <p className="text-base text-foreground font-display font-medium">
+                  Our AI agents are hunting for vulnerabilities...
                 </p>
-            <div className="mt-3 text-xs text-muted-foreground">
-              {isStreaming ? "🟢 Streaming active" : "⏸️ Waiting to start..."}
-              {allLogs.length > 0 && ` | ${allLogs.length} log entries`}
-              {persistedLogs && persistedLogs.length > 0 && ` (${persistedLogs.length} persisted)`}
-              {isFetchingReport && " | 📥 Fetching report from session..."}
+                <div className="max-w-md mx-auto space-y-2">
+                  <p className="text-sm text-muted-foreground font-display">
+                    ⏰ This typically takes <span className="font-semibold text-primary">5-10 minutes</span>
+                  </p>
+                  <p className="text-sm text-muted-foreground font-display italic">
+                    Perfect time to grab a coffee ☕, stretch your legs 🚶, or watch a 
+                    <a href="https://www.youtube.com/results?search_query=funny+cat+videos" target="_blank" rel="noopener noreferrer" className="text-sky-600 hover:text-sky-700 dark:text-sky-400 underline mx-1">
+                      funny cat video
+                    </a> 
+                    on YouTube! 🐱
+                  </p>
+                  <p className="text-xs text-muted-foreground font-display mt-3 bg-sky-100/50 dark:bg-sky-900/20 rounded-lg p-2 border border-sky-200/50 dark:border-sky-800/50">
+                    💡 <span className="font-semibold">Pro tip:</span> You can navigate away! Your scan logs are auto-saved and will be here when you return.
+                  </p>
+                </div>
+              </div>
+            <div className="mt-4 text-xs text-muted-foreground flex items-center justify-center gap-4 flex-wrap">
+              <span className={`px-3 py-1 rounded-full ${isStreaming ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}>
+                {isStreaming ? "🟢 Live" : "⏸️ Starting..."}
+              </span>
+              {allLogs.length > 0 && (
+                <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                  📊 {allLogs.length} events
+                </span>
+              )}
+              {persistedLogs && persistedLogs.length > 0 && (
+                <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                  💾 {persistedLogs.length} saved
+                </span>
+              )}
+              {isFetchingReport && (
+                <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                  📥 Fetching report...
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -528,31 +559,56 @@ export default function AssessmentDetailContent({
               </button>
             </div>
           )}
-          <div className="text-xs text-muted-foreground space-y-1 bg-muted/50 p-3 rounded-lg border border-border">
-            <div>Status: {isStreaming ? "🟢 Streaming" : "⏸️ Not streaming"}</div>
-            <div>Live logs: {logs.length}</div>
-            <div>Total logs: {allLogs.length}</div>
-            {persistedLogs && persistedLogs.length > 0 && (
-              <div>Persisted logs: {persistedLogs.length} (restored from database)</div>
-            )}
-            {finalReport && <div>✅ Report extracted ({finalReport.length} chars)</div>}
-            {isFetchingReport && <div>📥 Fetching report from session...</div>}
-            {reportData && reportData.success && (
-              <div>✅ Report fetched from {reportData.source} ({reportData.length} chars)</div>
-            )}
+          
+          {/* Real-time Scan Logs Section */}
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-display font-semibold text-foreground flex items-center gap-2">
+                <span className="text-lg">📜</span>
+                Live Scan Logs
+                {isStreaming && <span className="animate-pulse">⚡</span>}
+              </h3>
+              <div className="text-xs text-muted-foreground">
+                Watching the AI work its magic...
+              </div>
+            </div>
+            <TerminalViewer logs={allLogs} isStreaming={isStreaming} />
           </div>
+
+          {/* Debug Info Section */}
+          <details className="text-xs text-muted-foreground space-y-1 bg-muted/50 p-3 rounded-lg border border-border">
+            <summary className="cursor-pointer hover:text-foreground transition-colors font-medium">
+              🔧 Technical Details (for the curious)
+            </summary>
+            <div className="mt-2 space-y-1 pl-2">
+              <div>Status: {isStreaming ? "🟢 Streaming" : "⏸️ Not streaming"}</div>
+              <div>Live logs: {logs.length}</div>
+              <div>Total logs: {allLogs.length}</div>
+              {persistedLogs && persistedLogs.length > 0 && (
+                <div>Persisted logs: {persistedLogs.length} (restored from database)</div>
+              )}
+              {finalReport && <div>✅ Report extracted ({finalReport.length} chars)</div>}
+              {isFetchingReport && <div>📥 Fetching report from session...</div>}
+              {reportData && reportData.success && (
+                <div>✅ Report fetched from {reportData.source} ({reportData.length} chars)</div>
+              )}
+            </div>
+          </details>
         </div>
       ) : (
         <>
           {assessment.status === "completed" && (
-            <div className="rounded-xl border border-green-300 bg-green-50 p-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm text-green-800 font-display font-semibold">
-                  Assessment Complete
-                </p>
-                <p className="text-xs text-green-700 font-display mt-1">
-                  Review the findings and results below, or fetch the full report.
-                </p>
+            <div className="rounded-xl border border-green-300 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="text-3xl">🎉</div>
+                <div>
+                  <p className="text-sm text-green-800 dark:text-green-300 font-display font-bold">
+                    ✅ Assessment Complete!
+                  </p>
+                  <p className="text-xs text-green-700 dark:text-green-400 font-display mt-1">
+                    Mission accomplished! Check out the findings below, or grab the full report.
+                  </p>
+                </div>
               </div>
               <button
                 onClick={async () => {

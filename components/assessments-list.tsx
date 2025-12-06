@@ -327,9 +327,13 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
 
       <div className="space-y-3">
         {assessments.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-card p-8 text-center">
-            <p className="text-sm text-muted-foreground font-display">
-              No assessments yet. Create your first assessment to start scanning.
+          <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
+            <div className="text-6xl mb-4">🔍</div>
+            <h3 className="text-lg font-display font-semibold text-foreground mb-2">
+              No Assessments Yet
+            </h3>
+            <p className="text-sm text-muted-foreground font-display max-w-md mx-auto">
+              Ready to find some bugs? Create your first security assessment and let our AI agents do the heavy lifting! 🚀
             </p>
           </div>
         ) : (
@@ -362,9 +366,13 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
                       assessment.status
                     )}`}
                   >
+                    {assessment.status === "running" && "🔄 "}
+                    {assessment.status === "completed" && "✅ "}
+                    {assessment.status === "failed" && "❌ "}
+                    {assessment.status === "pending" && "⏳ "}
                     {assessment.status}
                   </span>
-                  <span className="text-sky-600 text-xl">→</span>
+                  <span className="text-sky-600 dark:text-sky-400 text-xl">→</span>
                 </div>
               </div>
             </Link>
