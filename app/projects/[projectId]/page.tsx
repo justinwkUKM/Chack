@@ -19,7 +19,7 @@ export default async function ProjectDetailPage({
   const { projectId } = await params;
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10 bg-white">
+    <main className="mx-auto min-h-screen max-w-6xl px-4 py-10 pt-20 bg-background text-foreground">
       <ProjectDetailContent projectId={projectId} userId={session.user.id} />
     </main>
   );

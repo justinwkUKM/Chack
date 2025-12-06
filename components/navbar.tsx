@@ -4,6 +4,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Moon, Settings, Sun, LogOut, UserCircle, Menu, X } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import { useState, useEffect } from "react";
@@ -12,9 +13,21 @@ import { cn } from "@/lib/utils";
 export function Navbar() {
   const { data: session, status } = useSession();
   const { theme, toggleTheme } = useTheme();
+  const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isDark = theme === "dark";
+  const isDashboardShell = ["/dashboard", "/projects", "/scans", "/reports", "/settings"].some(
+    (path) => pathname?.startsWith(path)
+  );
+  const navContainerClasses = cn(
+    "px-4 sm:px-6 lg:px-8",
+    isDashboardShell ? "w-full lg:pl-64" : "mx-auto max-w-7xl"
+  );
+  const navInnerClasses = cn(
+    "flex h-16 items-center justify-between",
+    isDashboardShell ? "mx-auto max-w-7xl" : ""
+  );
   
   // Handle scroll effect
   useEffect(() => {
@@ -49,8 +62,8 @@ export function Navbar() {
         scrolled || mobileMenuOpen ? "bg-background/80 backdrop-blur-md border-border shadow-sm" : "bg-transparent"
       )}
     >
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
+      <div className={navContainerClasses}>
+        <div className={navInnerClasses}>
           {/* Logo */}
           <div className="flex items-center">
             <Link 
@@ -103,8 +116,8 @@ export function Navbar() {
                 <div className="h-9 w-24 bg-muted animate-pulse rounded-lg" />
               ) : session ? (
                 <div className="flex items-center gap-3 pl-2">
-                  <div className="flex flex-col items-end hidden lg:block">
-                    <span className="text-sm font-medium leading-none">{displayName}</span>
+                  <div className="hidden lg:flex flex-col items-end mr-2">
+                    <span className="text-sm font-medium leading-none text-foreground">{displayName}</span>
                     <span className="text-xs text-muted-foreground mt-1">{displayEmail}</span>
                   </div>
                   

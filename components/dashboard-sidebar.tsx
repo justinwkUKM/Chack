@@ -43,60 +43,6 @@ function ProjectsList({ orgId }: { orgId: string }) {
   );
 }
 
-// Mini assessments list for sidebar
-function AssessmentsList({ orgId }: { orgId: string }) {
-  const assessments = useQuery(api.organizations.getAssessments, { orgId });
-
-  if (assessments === undefined) {
-    return <div className="text-xs text-muted-foreground">Loading...</div>;
-  }
-
-  if (assessments.length === 0) {
-    return <div className="text-xs text-muted-foreground">No assessments yet</div>;
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "completed":
-        return "text-green-600";
-      case "running":
-        return "text-blue-600";
-      case "failed":
-        return "text-red-600";
-      default:
-        return "text-muted-foreground";
-    }
-  };
-
-  return (
-    <div className="space-y-1.5 max-h-48 overflow-y-auto">
-      {assessments.slice(0, 5).map((assessment, index) => (
-        <Link
-          key={assessment._id}
-          href={`/assessments/${assessment._id}`}
-          className="block rounded-lg px-3 py-2 text-xs hover:bg-secondary group border border-transparent hover:border-border hover:scale-[1.02] transition-all duration-300"
-          title={assessment.name}
-          style={{ animationDelay: `${index * 50}ms` }}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-foreground group-hover:text-primary truncate flex-1 font-display transition-colors">
-              {assessment.name}
-            </span>
-            <span className={`text-xs ${getStatusColor(assessment.status)} animate-pulse-slow`}>
-              ●
-            </span>
-          </div>
-        </Link>
-      ))}
-      {assessments.length > 5 && (
-        <div className="text-xs text-muted-foreground px-3 py-1 font-display">
-          +{assessments.length - 5} more
-        </div>
-      )}
-    </div>
-  );
-}
-
 interface DashboardSidebarProps {
   currentOrgId: string;
   userId: string;
@@ -236,12 +182,6 @@ export default function DashboardSidebar({
                   {stats.projectsCount}
                 </span>
               </div>
-              <div className="flex items-center justify-between rounded-xl px-4 py-3 border border-border bg-card">
-                <span className="text-sm text-foreground font-display">Assessments</span>
-                <span className="text-lg font-display font-bold text-cyan-600">
-                  {stats.assessmentsCount}
-                </span>
-              </div>
             </div>
           </div>
         )}
@@ -299,14 +239,6 @@ export default function DashboardSidebar({
             Projects
           </h2>
           <ProjectsList orgId={currentOrgId} />
-        </div>
-
-        {/* Assessments List */}
-        <div className="animate-fade-in">
-          <h2 className="text-xs font-semibold text-muted-foreground">
-            Assessments
-          </h2>
-          <AssessmentsList orgId={currentOrgId} />
         </div>
       </div>
     </aside>
