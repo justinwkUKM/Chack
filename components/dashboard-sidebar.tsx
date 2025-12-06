@@ -7,6 +7,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import Image from "next/image";
 import { Settings } from "lucide-react";
 
 // Mini projects list for sidebar
@@ -128,9 +129,11 @@ export default function DashboardSidebar({
             >
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-500/20 to-cyan-500/20 flex items-center justify-center overflow-hidden ring-2 ring-sky-500/20 group-hover:ring-sky-400/40 transition-all duration-300">
                 {user.image ? (
-                  <img
+                  <Image
                     src={user.image}
                     alt={user.name || user.email}
+                    width={40}
+                    height={40}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
                 ) : (

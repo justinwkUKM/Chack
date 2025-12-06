@@ -22,6 +22,7 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
   const [assessmentType, setAssessmentType] = useState("blackbox");
   const [targetType, setTargetType] = useState("web_app");
   const [targetUrl, setTargetUrl] = useState("");
+  const [gitRepoUrl, setGitRepoUrl] = useState("");
 
   const assessments = useQuery(api.assessments.list, { projectId }) ?? [];
   const createAssessment = useMutation(api.assessments.create);
@@ -44,13 +45,15 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
         description: assessmentDescription || undefined,
         type: assessmentType,
         targetType,
-        targetUrl: targetUrl || undefined,
+        targetUrl: assessmentType === "blackbox" ? (targetUrl || undefined) : undefined,
+        gitRepoUrl: assessmentType === "whitebox" ? (gitRepoUrl || undefined) : undefined,
         createdByUserId: session.user.id,
       });
 
       setAssessmentName("");
       setAssessmentDescription("");
       setTargetUrl("");
+      setGitRepoUrl("");
       setShowCreateForm(false);
 
       // Redirect to assessment detail page to show loading state
@@ -78,7 +81,7 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
   return (
     <section className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-display font-semibold bg-gradient-to-r from-gray-900 to-black">Assessments</h2>
+        <h2 className="text-2xl font-display font-semibold from-gray-900 to-black">Assessments</h2>
         <div className="flex items-center gap-3">
           {org && "credits" in org && (
             <div className="text-xs text-gray-700">
@@ -191,22 +194,39 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-black mb-2 font-display">
-              Target URL (optional)
-            </label>
-            <input
-              type="url"
-              placeholder="https://app.example.com"
-              value={targetUrl}
-              onChange={(e) => setTargetUrl(e.target.value)}
-              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all duration-300"
-            />
-          </div>
+          {assessmentType === "blackbox" ? (
+            <div>
+              <label className="block text-sm font-medium text-black mb-2 font-display">
+                Target URL *
+              </label>
+              <input
+                type="url"
+                placeholder="https://app.example.com"
+                value={targetUrl}
+                onChange={(e) => setTargetUrl(e.target.value)}
+                required={assessmentType === "blackbox"}
+                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all duration-300"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-black mb-2 font-display">
+                Git Repository URL *
+              </label>
+              <input
+                type="url"
+                placeholder="https://github.com/user/repo.git"
+                value={gitRepoUrl}
+                onChange={(e) => setGitRepoUrl(e.target.value)}
+                required={assessmentType === "whitebox"}
+                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all duration-300"
+              />
+            </div>
+          )}
 
           <button
             type="submit"
-            disabled={!assessmentName.trim()}
+            disabled={!assessmentName.trim() || (assessmentType === "blackbox" && !targetUrl.trim()) || (assessmentType === "whitebox" && !gitRepoUrl.trim())}
             className="rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 px-6 py-3 text-sm font-semibold text-white hover:from-sky-400 hover:to-cyan-400 disabled:cursor-not-allowed disabled:opacity-50 hover:scale-105 hover:shadow-lg hover:shadow-sky-500/30 transition-all duration-300 font-display"
           >
             Create Assessment
