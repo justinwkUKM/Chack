@@ -512,24 +512,23 @@ export default function AssessmentDetailContent({
             </div>
           </div>
         </div>
-      </div>
           
-          {/* Real-time Scan Logs Section */}
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-display font-semibold text-foreground flex items-center gap-2">
-                <span className="text-lg">📜</span>
-                Live Scan Logs
-                {isStreaming && <span className="animate-pulse">⚡</span>}
-              </h3>
-              <div className="text-xs text-muted-foreground">
-                Watching the AI work its magic...
-              </div>
+        {/* Real-time Scan Logs Section */}
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-display font-semibold text-foreground flex items-center gap-2">
+              <span className="text-lg">📜</span>
+              Live Scan Logs
+              {isStreaming && <span className="animate-pulse">⚡</span>}
+            </h3>
+            <div className="text-xs text-muted-foreground">
+              Watching the AI work its magic...
             </div>
-            <TerminalViewer logs={allLogs} isStreaming={isStreaming} />
           </div>
+          <TerminalViewer logs={allLogs} isStreaming={isStreaming} />
+        </div>
 
-          {error && (
+        {error && (
             <div className="rounded-xl border border-red-300 bg-red-50 p-4">
               <p className="text-sm text-red-800 font-display font-semibold mb-1">
                 Scan Error
