@@ -222,10 +222,10 @@ export default function AssessmentDetailContent({
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center gap-4">
         <Link
-          href="/dashboard"
+          href={assessment.projectId ? `/projects/${assessment.projectId}` : "/dashboard"}
           className="text-muted-foreground hover:text-primary transition-colors font-display"
         >
-          ← Back to Dashboard
+          ← Back to Project
         </Link>
         <div className="flex-1">
           <h1 className="text-3xl font-display font-bold text-foreground">{assessment.name}</h1>
