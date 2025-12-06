@@ -188,6 +188,145 @@ export default async function HomePage() {
           </div>
         </div>
 
+        {/* Pricing Plans Section */}
+        <div className="mx-auto mt-20 max-w-6xl space-y-6 text-center animate-fade-in-delayed">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+              Simple, transparent pricing
+            </p>
+            <h2 className="text-3xl font-display font-semibold text-foreground sm:text-4xl">
+              Choose the plan that fits your team
+            </h2>
+            <p className="text-base text-muted-foreground sm:text-lg">
+              Start free and scale as you grow. No credit card required.
+            </p>
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-3 mt-12">
+            {/* Free Plan */}
+            <div className="rounded-2xl border border-border bg-card/50 px-6 py-8 shadow-sm animate-card-load hover:shadow-md transition-all duration-300 backdrop-blur-sm hover:border-primary/30 flex flex-col" style={{ animationDelay: '1.7s' }}>
+              <h3 className="text-xl font-semibold text-foreground">Free</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Perfect for getting started</p>
+              
+              <div className="mt-6 mb-6">
+                <p className="text-4xl font-bold text-foreground">$0<span className="text-lg text-muted-foreground">/month</span></p>
+              </div>
+
+              <div className="space-y-1 mb-6 flex-1">
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <span className="text-primary font-semibold">✓</span>
+                  <span>10 tests per month</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <span className="text-primary font-semibold">✓</span>
+                  <span>Basic vulnerability scanning</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <span className="text-primary font-semibold">✓</span>
+                  <span>OWASP Top 10 coverage</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <span className="text-primary font-semibold">✓</span>
+                  <span>Community support</span>
+                </div>
+              </div>
+
+              <Link
+                href="/auth/login"
+                className="w-full rounded-lg border border-primary bg-transparent px-4 py-2 text-sm font-semibold text-primary transition-all duration-300 hover:bg-primary/10 hover:shadow-sm"
+              >
+                Get Started
+              </Link>
+            </div>
+
+            {/* Pro Plan */}
+            <div className="rounded-2xl border-2 border-primary bg-card/80 px-6 py-8 shadow-lg animate-card-load hover:shadow-xl transition-all duration-300 backdrop-blur-sm flex flex-col relative" style={{ animationDelay: '1.8s' }}>
+              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                <span className="bg-gradient-to-r from-sky-500 to-cyan-500 text-white text-xs font-semibold px-4 py-1 rounded-full">Most Popular</span>
+              </div>
+
+              <h3 className="text-xl font-semibold text-foreground">Pro</h3>
+              <p className="mt-1 text-sm text-muted-foreground">For growing teams</p>
+              
+              <div className="mt-6 mb-6">
+                <p className="text-4xl font-bold text-foreground">$49<span className="text-lg text-muted-foreground">/month</span></p>
+                <p className="text-sm text-muted-foreground mt-2">Billed monthly</p>
+              </div>
+
+              <div className="space-y-1 mb-6 flex-1">
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <span className="text-primary font-semibold">✓</span>
+                  <span>1,000 tests per month</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <span className="text-primary font-semibold">✓</span>
+                  <span>Advanced vulnerability scanning</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <span className="text-primary font-semibold">✓</span>
+                  <span>Authenticated flow testing</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <span className="text-primary font-semibold">✓</span>
+                  <span>Priority email support</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <span className="text-primary font-semibold">✓</span>
+                  <span>Team collaboration</span>
+                </div>
+              </div>
+
+              <Link
+                href="/auth/login"
+                className="w-full rounded-lg bg-gradient-to-r from-sky-500 to-cyan-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-sky-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-sky-500/40 hover:scale-105"
+              >
+                Start Free Trial
+              </Link>
+            </div>
+
+            {/* Enterprise Plan */}
+            <div className="rounded-2xl border border-border bg-card/50 px-6 py-8 shadow-sm animate-card-load hover:shadow-md transition-all duration-300 backdrop-blur-sm hover:border-primary/30 flex flex-col" style={{ animationDelay: '1.9s' }}>
+              <h3 className="text-xl font-semibold text-foreground">Enterprise</h3>
+              <p className="mt-1 text-sm text-muted-foreground">For large organizations</p>
+              
+              <div className="mt-6 mb-6">
+                <p className="text-2xl font-bold text-foreground">Custom pricing</p>
+                <p className="text-sm text-muted-foreground mt-2">Based on your needs</p>
+              </div>
+
+              <div className="space-y-1 mb-6 flex-1">
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <span className="text-primary font-semibold">✓</span>
+                  <span>Unlimited tests</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <span className="text-primary font-semibold">✓</span>
+                  <span>Custom integrations</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <span className="text-primary font-semibold">✓</span>
+                  <span>Advanced compliance tools</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <span className="text-primary font-semibold">✓</span>
+                  <span>Dedicated support</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <span className="text-primary font-semibold">✓</span>
+                  <span>SLA guarantee</span>
+                </div>
+              </div>
+
+              <Link
+                href="mailto:sales@chack.dev"
+                className="w-full rounded-lg border border-primary bg-transparent px-4 py-2 text-sm font-semibold text-primary transition-all duration-300 hover:bg-primary/10 hover:shadow-sm"
+              >
+                Contact Sales
+              </Link>
+            </div>
+          </div>
+        </div>
+
         <div className="mx-auto mt-20 mb-10 max-w-4xl rounded-3xl bg-gradient-to-r from-sky-500 to-cyan-500 px-8 py-8 text-center text-white shadow-xl animate-fade-in-delayed relative overflow-hidden">
           {/* Animated gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-r from-sky-400/0 via-white/10 to-cyan-400/0 animate-shimmer pointer-events-none" />
@@ -201,7 +340,7 @@ export default async function HomePage() {
             <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 href="/auth/login"
-                className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-sky-700 shadow-md shadow-sky-900/10 transition-all duration-300 hover:scale-105 hover:shadow-lg"
+                className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-sky-700 shadow-md shadow-sky-900/10 transition-all duration-300 hover:scale-105 hover:shadow-lg dark:bg-slate-900 dark:text-white"
               >
                 Start a test run
               </Link>
