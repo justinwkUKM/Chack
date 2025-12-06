@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import AssessmentsList from "./assessments-list";
+import { useToast } from "./toast";
 
 interface ProjectDetailContentProps {
   projectId: string;
@@ -20,6 +21,7 @@ export default function ProjectDetailContent({
   userId,
 }: ProjectDetailContentProps) {
   const router = useRouter();
+  const { success: showSuccess, error: showError, ToastComponent } = useToast();
   const project = useQuery(api.projects.get, { projectId });
   const deleteProject = useMutation(api.projects.deleteProject);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -31,14 +33,15 @@ export default function ProjectDetailContent({
     setIsDeleting(true);
     try {
       await deleteProject({ projectId });
+      showSuccess("✨ Project deleted successfully!");
       // Small delay before redirect to ensure UI updates
       setTimeout(() => {
         router.push("/dashboard");
-      }, 100);
+      }, 500);
     } catch (error: any) {
       console.error("Delete error:", error);
       const errorMessage = error?.message || "Failed to delete project. Please try again.";
-      alert(errorMessage);
+      showError(`💥 ${errorMessage}`);
       setIsDeleting(false);
       setShowDeleteConfirm(false);
     }
@@ -68,7 +71,9 @@ export default function ProjectDetailContent({
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <>
+      {ToastComponent}
+      <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <Link
@@ -139,6 +144,7 @@ export default function ProjectDetailContent({
 
       <AssessmentsList projectId={projectId} />
     </div>
+    </>
   );
 }
 

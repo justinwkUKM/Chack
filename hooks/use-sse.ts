@@ -117,7 +117,7 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
           } catch (e) {
             errorText = "Could not read error response";
           }
-          console.error("[useSSE] HTTP error:", errorText);
+          console.log("[useSSE] HTTP error:", errorText);
           throw new Error(`HTTP error! status: ${response.status}${errorText ? ` - ${errorText}` : ""}`);
         }
 
@@ -130,7 +130,7 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
           try {
             currentOptions.onStart(response);
           } catch (e) {
-            console.error("[useSSE] Error in onStart callback:", e);
+            console.log("[useSSE] Error in onStart callback:", e);
             // Don't throw - continue with stream
           }
         }

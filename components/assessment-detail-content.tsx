@@ -13,6 +13,7 @@ import ResultsList from "./results-list";
 import TerminalViewer from "./terminal-viewer";
 import { useSSE } from "@/hooks/use-sse";
 import { useFetchReport } from "@/hooks/use-fetch-report";
+import { useToast } from "./toast";
 
 interface AssessmentDetailContentProps {
   assessmentId: string;
@@ -24,6 +25,7 @@ export default function AssessmentDetailContent({
   userId,
 }: AssessmentDetailContentProps) {
   const router = useRouter();
+  const { success: showSuccess, error: showError, ToastComponent } = useToast();
   const assessment = useQuery(api.assessments.get, { assessmentId });
   const updateAssessmentStatus = useMutation(api.assessments.updateStatus);
   const parseReport = useMutation(api.assessments.parseReport);
@@ -331,21 +333,24 @@ export default function AssessmentDetailContent({
     setIsDeleting(true);
     try {
       await deleteAssessment({ assessmentId });
+      showSuccess("✨ Assessment deleted successfully!");
       // Small delay before redirect to ensure UI updates
       setTimeout(() => {
         router.push(assessment.projectId ? `/projects/${assessment.projectId}` : "/dashboard");
-      }, 100);
+      }, 500);
     } catch (error: any) {
       console.error("Delete error:", error);
       const errorMessage = error?.message || "Failed to delete assessment. Please try again.";
-      alert(errorMessage);
+      showError(`💥 ${errorMessage}`);
       setIsDeleting(false);
       setShowDeleteConfirm(false);
     }
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <>
+      {ToastComponent}
+      <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <Link
@@ -570,5 +575,6 @@ export default function AssessmentDetailContent({
         </>
       )}
     </div>
+    </>
   );
 }
