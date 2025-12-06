@@ -310,27 +310,27 @@ export default function SettingsContent({
       {/* Plans Tab */}
       {activeTab === "plans" && (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-gray-200 bg-white p-8">
-            <h2 className="text-xl font-display font-semibold mb-6 text-black">Choose Your Plan</h2>
+          <div className="rounded-2xl border border-border bg-card/90 p-8 shadow-lg shadow-black/5 dark:shadow-black/25 backdrop-blur">
+            <h2 className="text-xl font-display font-semibold mb-6 text-foreground">Choose Your Plan</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Free Plan */}
               <div
-                className={`rounded-2xl border p-6 transition-all duration-300 hover:scale-105 hover:shadow-xl ${
+                className={`rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
                   org.plan === "free"
-                    ? "border-sky-400/50 bg-sky-50"
-                    : "border-gray-200"
+                    ? "border-primary/60 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent dark:from-primary/20 dark:via-primary/10 dark:to-primary/5"
+                    : "border-border bg-card/70 hover:bg-secondary/60"
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-display font-semibold text-black">Free</h3>
+                  <h3 className="text-lg font-display font-semibold text-foreground">Free</h3>
                   {org.plan === "free" && (
                     <span className="text-xs bg-gradient-to-r from-sky-500 to-cyan-500 text-white px-3 py-1 rounded-full font-medium animate-pulse-slow">
                       Current
                     </span>
                   )}
                 </div>
-                <div className="text-3xl font-display font-bold mb-4 text-black">$0</div>
-                <ul className="space-y-2 text-sm text-gray-800">
+                <div className="text-3xl font-display font-bold mb-4 text-foreground">$0</div>
+                <ul className="space-y-2 text-sm text-muted-foreground">
                   <li>✓ 10 credits included</li>
                   <li>✓ Basic features</li>
                   <li>✓ Community support</li>
@@ -339,7 +339,7 @@ export default function SettingsContent({
                   <button
                     onClick={() => handlePlanChange("free")}
                     disabled={saving}
-                    className="w-full rounded-xl bg-gray-100 px-4 py-3 text-sm font-semibold text-black hover:bg-gray-200 disabled:opacity-50 hover:scale-105 transition-all duration-300 font-display border border-gray-300"
+                    className="w-full rounded-xl bg-secondary px-4 py-3 text-sm font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 hover:scale-105 transition-all duration-300 font-display border border-border"
                   >
                     Downgrade
                   </button>
@@ -348,22 +348,22 @@ export default function SettingsContent({
 
               {/* Pro Plan */}
               <div
-                className={`rounded-2xl border p-6 transition-all duration-300 hover:scale-105 hover:shadow-xl ${
+                className={`rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
                   org.plan === "pro"
-                    ? "border-sky-400/50 bg-sky-50"
-                    : "border-gray-200"
+                    ? "border-primary/60 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent dark:from-primary/20 dark:via-primary/10 dark:to-primary/5"
+                    : "border-border bg-card/70 hover:bg-secondary/60"
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-display font-semibold text-black">Pro</h3>
+                  <h3 className="text-lg font-display font-semibold text-foreground">Pro</h3>
                   {org.plan === "pro" && (
                     <span className="text-xs bg-gradient-to-r from-sky-500 to-cyan-500 text-white px-3 py-1 rounded-full font-medium animate-pulse-slow">
                       Current
                     </span>
                   )}
                 </div>
-                <div className="text-3xl font-display font-bold mb-4 text-black">$99/mo</div>
-                <ul className="space-y-2 text-sm text-gray-800">
+                <div className="text-3xl font-display font-bold mb-4 text-foreground">$99/mo</div>
+                <ul className="space-y-2 text-sm text-muted-foreground">
                   <li>✓ 1000 credits included</li>
                   <li>✓ All features</li>
                   <li>✓ Priority support</li>
@@ -382,22 +382,22 @@ export default function SettingsContent({
 
               {/* Enterprise Plan */}
               <div
-                className={`rounded-2xl border p-6 transition-all duration-300 hover:scale-105 hover:shadow-xl ${
+                className={`rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
                   org.plan === "enterprise"
-                    ? "border-sky-400/50 bg-sky-50"
-                    : "border-gray-200"
+                    ? "border-primary/60 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent dark:from-primary/20 dark:via-primary/10 dark:to-primary/5"
+                    : "border-border bg-card/70 hover:bg-secondary/60"
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-display font-semibold text-black">Enterprise</h3>
+                  <h3 className="text-lg font-display font-semibold text-foreground">Enterprise</h3>
                   {org.plan === "enterprise" && (
                     <span className="text-xs bg-gradient-to-r from-sky-500 to-cyan-500 text-white px-3 py-1 rounded-full font-medium animate-pulse-slow">
                       Current
                     </span>
                   )}
                 </div>
-                <div className="text-3xl font-display font-bold mb-4 text-black">Custom</div>
-                <ul className="space-y-2 text-sm text-gray-800">
+                <div className="text-3xl font-display font-bold mb-4 text-foreground">Custom</div>
+                <ul className="space-y-2 text-sm text-muted-foreground">
                   <li>✓ Contact for pricing</li>
                   <li>✓ Unlimited credits</li>
                   <li>✓ Custom features</li>

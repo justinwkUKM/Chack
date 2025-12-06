@@ -20,7 +20,7 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="flex bg-white">
+    <div className="flex min-h-screen w-full bg-background text-foreground pt-16">
       <SettingsLayout userId={session.user.id} />
     </div>
   );

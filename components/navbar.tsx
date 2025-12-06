@@ -22,11 +22,11 @@ export function Navbar() {
   );
   const navContainerClasses = cn(
     "px-4 sm:px-6 lg:px-8",
-    isDashboardShell ? "w-full lg:pl-64" : "mx-auto max-w-7xl"
+    isDashboardShell ? "w-full" : "mx-auto max-w-7xl"
   );
   const navInnerClasses = cn(
     "flex h-16 items-center justify-between",
-    isDashboardShell ? "mx-auto max-w-7xl" : ""
+    isDashboardShell ? "" : "mx-auto max-w-7xl"
   );
   
   // Handle scroll effect
@@ -86,12 +86,6 @@ export function Navbar() {
               <nav className="flex items-center gap-6 mr-4">
                 <Link href="/dashboard" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                   Dashboard
-                </Link>
-                <Link href="/scans" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                  Scans
-                </Link>
-                <Link href="/reports" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                  Reports
                 </Link>
               </nav>
             )}
@@ -205,13 +199,6 @@ export function Navbar() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Dashboard
-                </Link>
-                <Link
-                  href="/scans"
-                  className="block rounded-lg px-3 py-2 text-base font-medium text-foreground hover:bg-secondary"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Scans
                 </Link>
                 <Link
                   href="/settings"
