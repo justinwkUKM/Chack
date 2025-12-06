@@ -194,14 +194,34 @@ export async function POST(
       async start(controller) {
         let buffer = "";
         let eventCount = 0;
+        let isClosed = false;
+
+        // Helper to safely enqueue data
+        const safeEnqueue = (data: Uint8Array) => {
+          if (!isClosed) {
+            try {
+              controller.enqueue(data);
+            } catch (error: any) {
+              if (error?.code === 'ERR_INVALID_STATE' || error?.message?.includes('closed')) {
+                console.log(`[Scan API] Stream already closed, stopping enqueue`);
+                isClosed = true;
+              } else {
+                throw error;
+              }
+            }
+          }
+        };
 
         try {
-          while (true) {
+          while (!isClosed) {
             const { done, value } = await reader.read();
 
             if (done) {
               console.log(`[Scan API] Stream completed. Total events: ${eventCount}`);
-              controller.close();
+              if (!isClosed) {
+                controller.close();
+                isClosed = true;
+              }
               break;
             }
 
@@ -218,7 +238,7 @@ export async function POST(
               const eventText = buffer.slice(0, eventEnd);
               buffer = buffer.slice(eventEnd + delimiter.length);
 
-              if (eventText.trim()) {
+              if (eventText.trim() && !isClosed) {
                 eventCount++;
                 
                 // Handle SSE event format
@@ -239,7 +259,7 @@ export async function POST(
                     ? `event: ${eventType}\ndata: ${dataLine}\n\n`
                     : `data: ${dataLine}\n\n`;
                   
-                  controller.enqueue(new TextEncoder().encode(output));
+                  safeEnqueue(new TextEncoder().encode(output));
                   
                   // Log first few events for debugging
                   if (eventCount <= 3) {
@@ -253,15 +273,25 @@ export async function POST(
                 } else if (eventText.trim().startsWith("data:")) {
                   // Handle case where data: is on its own line
                   const data = eventText.trim().slice(5).trim();
-                  controller.enqueue(new TextEncoder().encode(`data: ${data}\n\n`));
+                  safeEnqueue(new TextEncoder().encode(`data: ${data}\n\n`));
                 }
               }
             }
           }
         } catch (error) {
-          console.error(`[Scan API] Stream error:`, error);
-          controller.error(error);
+          console.log(`[Scan API] Stream error:`, error);
+          if (!isClosed) {
+            try {
+              controller.error(error);
+            } catch (e) {
+              // Controller already closed, ignore
+            }
+            isClosed = true;
+          }
         }
+      },
+      cancel() {
+        console.log(`[Scan API] Stream cancelled by client`);
       },
     });
 
