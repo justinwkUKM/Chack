@@ -22,7 +22,7 @@ export default async function OnboardingPage() {
         <h1 className="text-4xl font-display font-bold bg-gradient-to-r from-sky-400 via-cyan-400 to-sky-400 bg-clip-text text-transparent">
           Welcome 🎉
         </h1>
-        <p className="text-gray-800">Let's set up your workspace.</p>
+        <p className="text-gray-800">Let&apos;s set up your workspace.</p>
       </div>
       <OnboardingForm userId={session.user.id} />
     </main>

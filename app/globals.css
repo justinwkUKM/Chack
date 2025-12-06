@@ -211,6 +211,14 @@
     animation: scanVertical 8s linear infinite;
   }
 
+  .animate-slide-in-right {
+    animation: slideInRight 0.3s ease-out;
+  }
+
+  .animate-slide-in-down {
+    animation: slideInDown 0.3s ease-out;
+  }
+
   .perspective-grid {
     transform-style: preserve-3d;
   }
@@ -334,6 +342,28 @@
   50% {
     opacity: 1;
     box-shadow: 0 0 40px rgba(56, 189, 248, 0.6);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(2rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

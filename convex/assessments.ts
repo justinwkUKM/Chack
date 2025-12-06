@@ -46,6 +46,7 @@ export const create = mutation({
     type: v.string(), // "blackbox" | "whitebox"
     targetType: v.string(), // "web_app" | "api" | "mobile" | "network"
     targetUrl: v.optional(v.string()),
+    gitRepoUrl: v.optional(v.string()), // For whitebox assessments
     createdByUserId: v.string(),
   },
   handler: async (ctx, args) => {
@@ -98,6 +99,7 @@ export const create = mutation({
       type: args.type,
       targetType: args.targetType,
       targetUrl: args.targetUrl,
+      gitRepoUrl: args.gitRepoUrl,
       status: "running",
       createdByUserId: args.createdByUserId,
       startedAt: now,
@@ -118,6 +120,138 @@ export const create = mutation({
     });
 
     return assessmentId;
+  },
+});
+
+// Update assessment status
+export const updateStatus = mutation({
+  args: {
+    assessmentId: v.string(),
+    status: v.string(),
+    completedAt: v.optional(v.number()),
+    sessionId: v.optional(v.string()), // Add sessionId parameter
+  },
+  handler: async (ctx, args) => {
+    const assessment = await ctx.db.get(args.assessmentId as any);
+    if (!assessment) {
+      throw new Error("Assessment not found");
+    }
+
+    const updates: any = {
+      status: args.status,
+      updatedAt: Date.now(),
+    };
+
+    if (args.completedAt !== undefined) {
+      updates.completedAt = args.completedAt;
+    }
+
+    if (args.sessionId !== undefined) {
+      updates.sessionId = args.sessionId;
+    }
+
+    await ctx.db.patch(args.assessmentId as any, updates);
+  },
+});
+
+// Parse report and create findings/results
+export const parseReport = mutation({
+  args: {
+    assessmentId: v.string(),
+    report: v.string(),
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const assessment = await ctx.db.get(args.assessmentId as any);
+    if (!assessment) {
+      throw new Error("Assessment not found");
+    }
+
+    const now = Date.now();
+
+    // Save the full report as a result
+    await ctx.db.insert("results", {
+      assessmentId: args.assessmentId,
+      type: "scan_data",
+      data: JSON.stringify({ report: args.report }),
+      metadata: JSON.stringify({ format: "markdown" }),
+      createdByUserId: args.userId,
+      createdAt: now,
+    });
+
+    // Parse markdown report to extract findings
+    // This is a simplified parser - you may want to enhance it
+    const reportLines = args.report.split("\n");
+    let currentFinding: any = null;
+    const findings: any[] = [];
+
+    for (const line of reportLines) {
+      // Look for headings that might indicate findings
+      if (line.startsWith("#")) {
+        if (currentFinding) {
+          findings.push(currentFinding);
+        }
+        currentFinding = {
+          title: line.replace(/^#+\s*/, "").trim(),
+          description: "",
+          severity: "medium",
+          status: "open",
+          createdByUserId: args.userId,
+          createdAt: now,
+          updatedAt: now,
+        };
+      } else if (line.toLowerCase().includes("severity:") || line.toLowerCase().includes("severity -")) {
+        const severityMatch = line.match(/severity[:\-]\s*(critical|high|medium|low|info)/i);
+        if (severityMatch && currentFinding) {
+          currentFinding.severity = severityMatch[1].toLowerCase();
+        }
+      } else if (line.toLowerCase().includes("cwe")) {
+        const cweMatch = line.match(/cwe[-\s]?(\d+)/i);
+        if (cweMatch && currentFinding) {
+          currentFinding.cweId = `CWE-${cweMatch[1]}`;
+        }
+      } else if (line.toLowerCase().includes("cvss")) {
+        const cvssMatch = line.match(/cvss[:\-]?\s*(\d+\.?\d*)/i);
+        if (cvssMatch && currentFinding) {
+          currentFinding.cvssScore = parseFloat(cvssMatch[1]);
+        }
+      } else if (currentFinding && line.trim()) {
+        // Accumulate description
+        if (currentFinding.description) {
+          currentFinding.description += "\n" + line.trim();
+        } else {
+          currentFinding.description = line.trim();
+        }
+      }
+    }
+
+    // Add the last finding
+    if (currentFinding && currentFinding.title) {
+      findings.push(currentFinding);
+    }
+
+    // Create findings in database
+    for (const finding of findings) {
+      if (finding.title && finding.description) {
+        await ctx.db.insert("findings", {
+          assessmentId: args.assessmentId,
+          title: finding.title,
+          description: finding.description,
+          severity: finding.severity || "medium",
+          status: finding.status || "open",
+          cweId: finding.cweId,
+          cvssScore: finding.cvssScore,
+          location: finding.location,
+          evidence: finding.evidence,
+          remediation: finding.remediation,
+          createdByUserId: finding.createdByUserId,
+          createdAt: finding.createdAt,
+          updatedAt: finding.updatedAt,
+        });
+      }
+    }
+
+    return { findingsCount: findings.length };
   },
 });
 
@@ -325,28 +459,6 @@ export const runScan = mutation({
   },
 });
 
-// Update assessment status
-export const updateStatus = mutation({
-  args: {
-    assessmentId: v.string(),
-    status: v.string(), // "pending" | "running" | "completed" | "failed"
-    startedAt: v.optional(v.number()),
-    completedAt: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const { assessmentId, ...updates } = args;
-    const existing = await ctx.db.get(assessmentId as any);
-    if (!existing) {
-      throw new Error("Assessment not found");
-    }
-
-    await ctx.db.patch(assessmentId as any, {
-      ...updates,
-      updatedAt: Date.now(),
-    });
-  },
-});
-
 // Update assessment details
 export const update = mutation({
   args: {
@@ -366,6 +478,40 @@ export const update = mutation({
       ...updates,
       updatedAt: Date.now(),
     });
+  },
+});
+
+// Delete an assessment and all its related data
+export const deleteAssessment = mutation({
+  args: { assessmentId: v.string() },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.assessmentId as any);
+    if (!existing) {
+      throw new Error("Assessment not found");
+    }
+
+    // Delete all findings for this assessment
+    const findings = await ctx.db
+      .query("findings")
+      .withIndex("by_assessment", (q) => q.eq("assessmentId", args.assessmentId))
+      .collect();
+    
+    for (const finding of findings) {
+      await ctx.db.delete(finding._id);
+    }
+
+    // Delete all results for this assessment
+    const results = await ctx.db
+      .query("results")
+      .withIndex("by_assessment", (q) => q.eq("assessmentId", args.assessmentId))
+      .collect();
+    
+    for (const result of results) {
+      await ctx.db.delete(result._id);
+    }
+
+    // Delete the assessment
+    await ctx.db.delete(args.assessmentId as any);
   },
 });
 

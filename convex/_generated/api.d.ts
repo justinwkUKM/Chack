@@ -17,6 +17,7 @@ import type * as onboarding from "../onboarding.js";
 import type * as organizations from "../organizations.js";
 import type * as projects from "../projects.js";
 import type * as results from "../results.js";
+import type * as scanLogs from "../scanLogs.js";
 import type * as users from "../users.js";
 
 import type {
@@ -35,6 +36,7 @@ declare const fullApi: ApiFromModules<{
   organizations: typeof organizations;
   projects: typeof projects;
   results: typeof results;
+  scanLogs: typeof scanLogs;
   users: typeof users;
 }>;
 

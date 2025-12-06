@@ -7,6 +7,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import Image from "next/image";
 import { Settings } from "lucide-react";
 
 // Mini projects list for sidebar
@@ -14,11 +15,11 @@ function ProjectsList({ orgId }: { orgId: string }) {
   const projects = useQuery(api.organizations.getProjects, { orgId });
 
   if (projects === undefined) {
-    return <div className="text-xs text-muted-foreground">Loading...</div>;
+    return <div className="text-xs text-muted-foreground px-3 py-2">Loading...</div>;
   }
 
   if (projects.length === 0) {
-    return <div className="text-xs text-muted-foreground">No projects yet</div>;
+    return <div className="text-xs text-muted-foreground px-3 py-2">No projects yet</div>;
   }
 
   return (
@@ -27,7 +28,7 @@ function ProjectsList({ orgId }: { orgId: string }) {
         <Link
           key={project._id}
           href={`/projects/${project._id}`}
-          className="block rounded-lg px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
+          className="block rounded-lg px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors truncate"
           title={project.name}
           style={{ animationDelay: `${index * 50}ms` }}
         >
@@ -35,7 +36,7 @@ function ProjectsList({ orgId }: { orgId: string }) {
         </Link>
       ))}
       {projects.length > 5 && (
-        <div className="text-xs text-muted-foreground">
+        <div className="text-xs text-muted-foreground px-3 py-1">
           +{projects.length - 5} more
         </div>
       )}
@@ -75,13 +76,15 @@ export default function DashboardSidebar({
           <div className="pb-4 border-b border-border">
             <Link
               href="/settings"
-              className="flex items-center gap-3 rounded-xl p-3 hover:bg-secondary transition-colors"
+              className="flex items-center gap-3 rounded-xl p-3 hover:bg-secondary transition-colors group"
             >
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-500/20 to-cyan-500/20 flex items-center justify-center overflow-hidden ring-2 ring-sky-500/20 group-hover:ring-sky-400/40 transition-all duration-300">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-500/20 to-cyan-500/20 flex items-center justify-center overflow-hidden ring-2 ring-sky-500/20 group-hover:ring-sky-400/40 transition-all duration-300 flex-shrink-0">
                 {user.image ? (
-                  <img
+                  <Image
                     src={user.image}
                     alt={user.name || user.email}
+                    width={40}
+                    height={40}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
                 ) : (
@@ -91,28 +94,28 @@ export default function DashboardSidebar({
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-foreground">
+                <div className="text-sm font-medium text-foreground truncate">
                   {user.name || user.email}
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground truncate">
                   {user.email}
                 </div>
               </div>
-              <Settings className="w-4 h-4 text-muted-foreground" />
+              <Settings className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             </Link>
           </div>
         )}
 
         {/* Current Organization */}
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xs font-semibold text-muted-foreground">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Organization
             </h2>
             {allOrgs && allOrgs.length > 1 && (
               <button
                 onClick={() => setShowOrgSwitcher(!showOrgSwitcher)}
-                className="text-xs text-primary"
+                className="text-xs text-primary hover:text-primary/80 transition-colors"
               >
                 Switch
               </button>
@@ -121,22 +124,22 @@ export default function DashboardSidebar({
           {currentOrg && "name" in currentOrg && (
             <div className="rounded-xl border border-primary/10 bg-card/80 p-4 space-y-3 shadow-sm">
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="font-semibold text-foreground font-display text-base">
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-foreground font-display text-base truncate">
                     {currentOrg.name}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     AI coverage for your workspace
                   </p>
                 </div>
-                <div className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary/90">
+                <div className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary/90 flex-shrink-0">
                   Active
                 </div>
               </div>
               {"plan" in currentOrg && (
-                <div className="text-xs text-muted-foreground mt-2 flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span
-                    className="px-2 py-0.5 rounded-full bg-secondary text-foreground capitalize"
+                    className="px-2 py-0.5 rounded-full bg-secondary text-foreground capitalize text-xs"
                     title="Plan controls credit refill cadence"
                   >
                     {currentOrg.plan}
@@ -148,19 +151,21 @@ export default function DashboardSidebar({
               )}
               {"credits" in currentOrg && (
                 <div className="space-y-2">
-                  <div className="text-xs text-muted-foreground flex items-center gap-2">
-                    <span>Credits:</span>
-                    <span
-                      className={`font-semibold px-2 py-0.5 rounded-full transition-all duration-300 ${
-                        creditsValue < 3
-                          ? "text-yellow-700 bg-yellow-50"
-                          : "text-sky-700 bg-sky-50"
-                      }`}
-                      title="Credits used when running AI scans"
-                    >
-                      {creditsValue}
-                    </span>
-                    {creditsValue < 3 && <span className="text-yellow-700">⚠️</span>}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Credits:</span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`font-semibold px-2 py-0.5 rounded-full transition-all duration-300 text-xs ${
+                          creditsValue < 3
+                            ? "text-yellow-700 bg-yellow-50"
+                            : "text-sky-700 bg-sky-50"
+                        }`}
+                        title="Credits used when running AI scans"
+                      >
+                        {creditsValue}
+                      </span>
+                      {creditsValue < 3 && <span className="text-yellow-700">⚠️</span>}
+                    </div>
                   </div>
                   <div className="h-1.5 w-full rounded-full bg-secondary/60 overflow-hidden">
                     <div
@@ -178,7 +183,7 @@ export default function DashboardSidebar({
 
           {/* Org Switcher */}
           {showOrgSwitcher && allOrgs && allOrgs.length > 1 && (
-            <div className="mt-2 space-y-2 animate-fade-in">
+            <div className="mt-3 space-y-2 animate-fade-in">
               {allOrgs.map((org, index) => (
                 <Link
                   key={org._id}
@@ -190,10 +195,12 @@ export default function DashboardSidebar({
                   }`}
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  {"name" in org ? org.name : ""}
-                <span className="ml-2 text-xs text-muted-foreground">
-                    {"role" in org ? `(${org.role})` : ""}
-                  </span>
+                  <div className="truncate">
+                    {"name" in org ? org.name : ""}
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {"role" in org ? `(${org.role})` : ""}
+                    </span>
+                  </div>
                 </Link>
               ))}
             </div>
@@ -203,7 +210,7 @@ export default function DashboardSidebar({
         {/* Quick Stats */}
         {stats && (
           <div className="space-y-3 animate-fade-in">
-            <h2 className="text-xs font-semibold text-muted-foreground">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Overview
             </h2>
             <div className="space-y-2">
@@ -219,8 +226,8 @@ export default function DashboardSidebar({
 
         {/* Members List */}
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase font-display tracking-wider">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase font-display tracking-wide">
               Members
             </h2>
             <button
@@ -233,7 +240,7 @@ export default function DashboardSidebar({
           {showMembers && members && (
             <div className="space-y-2 animate-fade-in">
               {members.length === 0 ? (
-                <p className="text-xs text-muted-foreground font-display">No members yet</p>
+                <p className="text-xs text-muted-foreground font-display px-3 py-2">No members yet</p>
               ) : (
                 members.map((member, index) => (
                   <div
@@ -241,7 +248,7 @@ export default function DashboardSidebar({
                     className="flex items-center gap-3 rounded-xl px-3 py-2 border border-border bg-card hover:bg-secondary hover:scale-[1.02] transition-all duration-300"
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-500/20 to-cyan-500/20 flex items-center justify-center text-xs font-semibold text-sky-600 ring-2 ring-sky-500/20">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-500/20 to-cyan-500/20 flex items-center justify-center text-xs font-semibold text-sky-600 ring-2 ring-sky-500/20 flex-shrink-0">
                       {member.name?.[0]?.toUpperCase() || member.email[0]?.toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -258,7 +265,7 @@ export default function DashboardSidebar({
             </div>
           )}
           {!showMembers && members && (
-            <div className="text-sm text-muted-foreground font-display px-2 py-1 rounded-full bg-secondary inline-block">
+            <div className="text-xs text-muted-foreground font-display px-3 py-2 rounded-lg bg-secondary">
               {members.length} {members.length === 1 ? "member" : "members"}
             </div>
           )}
@@ -266,7 +273,7 @@ export default function DashboardSidebar({
 
         {/* Projects (Targets) List */}
         <div className="animate-fade-in">
-          <h2 className="text-xs font-semibold text-muted-foreground">
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
             Projects
           </h2>
           <ProjectsList orgId={currentOrgId} />

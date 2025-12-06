@@ -61,8 +61,10 @@ export default defineSchema({
     description: v.optional(v.string()),
     type: v.string(), // "blackbox" | "whitebox"
     targetType: v.string(), // "web_app" | "api" | "mobile" | "network"
-    targetUrl: v.optional(v.string()),
+    targetUrl: v.optional(v.string()), // For blackbox: target URL
+    gitRepoUrl: v.optional(v.string()), // For whitebox: git repository URL
     status: v.string(), // "pending" | "running" | "completed" | "failed"
+    sessionId: v.optional(v.string()), // Backend session ID for this assessment run
     createdByUserId: v.string(),
     startedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
@@ -70,7 +72,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_project", ["projectId"])
-    .index("by_project_status", ["projectId", "status"]),
+    .index("by_project_status", ["projectId", "status"])
+    .index("by_session", ["sessionId"]),
 
   // Findings table - belongs to an assessment
   findings: defineTable({
@@ -101,6 +104,18 @@ export default defineSchema({
     createdByUserId: v.string(),
     createdAt: v.number(),
   }).index("by_assessment", ["assessmentId"]),
+
+  // Scan logs table - real-time logs from SSE streams
+  scanLogs: defineTable({
+    assessmentId: v.string(),
+    timestamp: v.number(),
+    author: v.string(), // "agent" | "user" | "system"
+    text: v.string(),
+    type: v.optional(v.string()), // "text" | "functionCall" | "functionResponse"
+    createdAt: v.number(),
+  })
+    .index("by_assessment", ["assessmentId"])
+    .index("by_assessment_timestamp", ["assessmentId", "timestamp"]),
 
   // Credit transactions table - tracks credit usage and additions
   creditTransactions: defineTable({

@@ -7,6 +7,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { useToast } from "./toast";
 
 interface ProjectsListProps {
   orgId: string;
@@ -14,33 +15,85 @@ interface ProjectsListProps {
 
 export default function ProjectsList({ orgId }: ProjectsListProps) {
   const { data: session } = useSession();
+  const { showToast, error: showError, success: showSuccess, ToastComponent } = useToast();
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const projectsData = useQuery(api.projects.list, { orgId });
   const createProject = useMutation(api.projects.create);
   const isLoading = projectsData === undefined;
   const projects = projectsData ?? [];
 
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!projectName.trim()) {
+      newErrors.name = "🎨 Your project needs a name! Even 'Project X' works.";
+    } else if (projectName.length < 2) {
+      newErrors.name = "🤏 Too short! At least 2 characters please.";
+    } else if (projectName.length > 100) {
+      newErrors.name = "📚 Woah there! Keep it under 100 characters.";
+    }
+
+    if (projectDescription.length > 500) {
+      newErrors.description = "✍️ Description is too long. Save the novel for later!";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session?.user?.id || !projectName.trim()) return;
+    
+    if (!validateForm()) {
+      showError("🛑 Hold up! Fix those errors first.");
+      return;
+    }
 
-    await createProject({
-      orgId,
-      name: projectName,
-      description: projectDescription || undefined,
-      createdByUserId: session.user.id,
-    });
+    if (!session?.user?.id) {
+      showError("🔐 You need to be logged in to create projects!");
+      return;
+    }
 
-    setProjectName("");
-    setProjectDescription("");
-    setShowCreateForm(false);
+    setIsSubmitting(true);
+
+    try {
+      await createProject({
+        orgId,
+        name: projectName,
+        description: projectDescription || undefined,
+        createdByUserId: session.user.id,
+      });
+
+      showSuccess("✨ Project created! Time to start scanning.");
+      setProjectName("");
+      setProjectDescription("");
+      setErrors({});
+      setShowCreateForm(false);
+    } catch (error: any) {
+      console.error("Project creation error:", error);
+      
+      let errorMessage = "💥 Something went wrong!";
+      if (error?.message?.includes("permission")) {
+        errorMessage = "🚫 You don't have permission to create projects.";
+      } else if (error?.message) {
+        errorMessage = `😅 ${error.message}`;
+      }
+      
+      showError(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <section className="space-y-6 animate-fade-in">
+    <>
+      {ToastComponent}
+      <section className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-display font-bold text-foreground">Projects</h2>
@@ -66,10 +119,15 @@ export default function ProjectsList({ orgId }: ProjectsListProps) {
               type="text"
               placeholder="My Security Project"
               value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
-              required
-              className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
+              onChange={(e) => {
+                setProjectName(e.target.value);
+                if (errors.name) setErrors({ ...errors, name: "" });
+              }}
+              className={`w-full rounded-lg border ${errors.name ? 'border-red-500 focus:ring-red-400' : 'border-input focus:ring-primary/50'} bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:border-primary transition-all duration-300`}
             />
+            {errors.name && (
+              <p className="text-xs text-red-500 mt-1 font-display animate-slide-in-down">{errors.name}</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-2 font-display">
@@ -78,17 +136,23 @@ export default function ProjectsList({ orgId }: ProjectsListProps) {
             <textarea
               placeholder="Brief description of this project..."
               value={projectDescription}
-              onChange={(e) => setProjectDescription(e.target.value)}
+              onChange={(e) => {
+                setProjectDescription(e.target.value);
+                if (errors.description) setErrors({ ...errors, description: "" });
+              }}
               rows={2}
-              className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300 resize-none"
+              className={`w-full rounded-lg border ${errors.description ? 'border-red-500 focus:ring-red-400' : 'border-input focus:ring-primary/50'} bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:border-primary transition-all duration-300 resize-none`}
             />
+            {errors.description && (
+              <p className="text-xs text-red-500 mt-1 font-display animate-slide-in-down">{errors.description}</p>
+            )}
           </div>
           <button
             type="submit"
-            disabled={!projectName.trim()}
-            className="rounded-lg bg-gradient-to-r from-sky-500 to-cyan-500 px-6 py-3 text-sm font-semibold text-white hover:from-sky-400 hover:to-cyan-400 disabled:cursor-not-allowed disabled:opacity-50 hover:scale-105 hover:shadow-lg hover:shadow-sky-500/30 transition-all duration-300 font-display"
+            disabled={isSubmitting}
+            className="rounded-lg bg-gradient-to-r from-sky-500 to-cyan-500 px-6 py-3 text-sm font-semibold text-white hover:from-sky-400 hover:to-cyan-400 disabled:cursor-not-allowed disabled:opacity-50 hover:scale-105 hover:shadow-lg hover:shadow-sky-500/30 transition-all duration-300 font-display disabled:hover:scale-100"
           >
-            Create Project
+            {isSubmitting ? "✨ Creating..." : "Create Project"}
           </button>
         </form>
       )}
@@ -161,6 +225,7 @@ export default function ProjectsList({ orgId }: ProjectsListProps) {
         )}
       </div>
     </section>
+    </>
   );
 }
 
