@@ -32,45 +32,46 @@ export default function FindingsList({
   };
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Findings</h2>
-        <div className="text-sm text-slate-400">
+        <h2 className="text-2xl font-display font-semibold text-black">Findings</h2>
+        <div className="text-sm text-gray-700">
           {findings.length} {findings.length === 1 ? "finding" : "findings"}
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {findings.length === 0 ? (
-          <div className="rounded-lg border border-slate-800 bg-slate-900 p-6 text-center">
-            <p className="text-sm text-slate-400">
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+            <p className="text-sm text-gray-700 font-display">
               No findings yet. Findings will appear here once the scan completes.
             </p>
           </div>
         ) : (
-          findings.map((finding) => (
+          findings.map((finding, index) => (
             <div
               key={finding._id}
-              className={`rounded-lg border p-4 ${getSeverityColor(finding.severity)}`}
+              className={`rounded-xl border p-5 hover:scale-[1.01] transition-all duration-300 animate-fade-in ${getSeverityColor(finding.severity)}`}
+              style={{ animationDelay: `${index * 50}ms` }}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold">{finding.title}</h3>
-                    <span className="rounded px-2 py-0.5 text-xs font-medium capitalize bg-slate-900/50">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="font-display font-semibold text-lg">{finding.title}</h3>
+                    <span className="rounded-full px-3 py-1 text-xs font-medium capitalize bg-white border border-gray-300">
                       {finding.severity}
                     </span>
                   </div>
-                  <p className="mt-1 text-sm opacity-90">{finding.description}</p>
+                  <p className="mt-2 text-sm leading-relaxed">{finding.description}</p>
                   {finding.location && (
-                    <p className="mt-2 text-xs opacity-75">
-                      Location: {finding.location}
+                    <p className="mt-3 text-xs font-mono bg-white px-2 py-1 rounded border border-gray-200 inline-block">
+                      📍 {finding.location}
                     </p>
                   )}
-                  <div className="mt-2 flex items-center gap-4 text-xs opacity-75">
-                    <span className="capitalize">Status: {finding.status}</span>
+                  <div className="mt-3 flex items-center gap-4 text-xs">
+                    <span className="px-2 py-1 rounded-full bg-white border border-gray-200 capitalize">Status: {finding.status}</span>
                     {finding.cvssScore && (
-                      <span>CVSS: {finding.cvssScore.toFixed(1)}</span>
+                      <span className="px-2 py-1 rounded-full bg-white border border-gray-200">CVSS: {finding.cvssScore.toFixed(1)}</span>
                     )}
                   </div>
                 </div>

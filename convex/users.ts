@@ -68,3 +68,49 @@ export const upsert = mutation({
   },
 });
 
+// Update user name
+export const updateName = mutation({
+  args: {
+    userId: v.string(),
+    name: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_user_id", (q) => q.eq("id", args.userId))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(user._id, {
+      name: args.name,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+// Update user theme preference
+export const updateTheme = mutation({
+  args: {
+    userId: v.string(),
+    theme: v.string(), // "light" | "dark"
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_user_id", (q) => q.eq("id", args.userId))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(user._id, {
+      theme: args.theme,
+      updatedAt: Date.now(),
+    });
+  },
+});
+

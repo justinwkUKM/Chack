@@ -49,19 +49,20 @@ export default function AssessmentDetailContent({
 
   if (assessment === undefined) {
     return (
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-6 text-center">
-        <p className="text-sm text-slate-400">Loading...</p>
+      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-sky-500"></div>
+        <p className="text-sm text-gray-700 mt-4 font-display">Loading...</p>
       </div>
     );
   }
 
   if (!assessment) {
     return (
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-6 text-center">
-        <p className="text-sm text-slate-400">Assessment not found</p>
+      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+        <p className="text-sm text-gray-700 font-display">Assessment not found</p>
         <Link
           href="/dashboard"
-          className="mt-4 inline-block text-sm text-sky-500 hover:text-sky-400"
+          className="mt-4 inline-block text-sm text-sky-600 hover:text-sky-500 transition-colors font-display"
         >
           ← Back to Dashboard
         </Link>
@@ -72,57 +73,57 @@ export default function AssessmentDetailContent({
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
-        return "bg-green-500/20 text-green-400";
+        return "bg-green-100 text-green-700 border-green-300";
       case "running":
-        return "bg-blue-500/20 text-blue-400";
+        return "bg-blue-100 text-blue-700 border-blue-300";
       case "failed":
-        return "bg-red-500/20 text-red-400";
+        return "bg-red-100 text-red-700 border-red-300";
       default:
-        return "bg-slate-500/20 text-slate-400";
+        return "bg-gray-100 text-gray-700 border-gray-300";
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center gap-4">
         <Link
           href="/dashboard"
-          className="text-slate-400 hover:text-slate-300"
+          className="text-gray-700 hover:text-sky-600 transition-colors font-display"
         >
           ← Back to Dashboard
         </Link>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold">{assessment.name}</h1>
+          <h1 className="text-3xl font-display font-bold text-black">{assessment.name}</h1>
           {assessment.description && (
-            <p className="text-sm text-slate-400 mt-1">{assessment.description}</p>
+            <p className="text-sm text-gray-700">{assessment.description}</p>
           )}
         </div>
         <span
-          className={`rounded px-3 py-1 text-sm font-medium capitalize ${getStatusColor(
+          className={`rounded-full px-4 py-1.5 text-sm font-medium capitalize border ${getStatusColor(
             assessment.status
-          )}`}
+          )} font-display`}
         >
           {assessment.status}
         </span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-          <div className="text-xs text-slate-400 uppercase">Type</div>
-          <div className="mt-1 text-sm font-medium capitalize">
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <div className="text-xs text-gray-600 uppercase font-display mb-2">Type</div>
+          <div className="text-sm font-medium capitalize font-display text-black">
             {assessment.type}
           </div>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-          <div className="text-xs text-slate-400 uppercase">Target Type</div>
-          <div className="mt-1 text-sm font-medium capitalize">
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <div className="text-xs text-gray-600 uppercase font-display mb-2">Target Type</div>
+          <div className="text-sm font-medium capitalize font-display text-black">
             {assessment.targetType}
           </div>
         </div>
         {assessment.targetUrl && (
-          <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-            <div className="text-xs text-slate-400 uppercase">Target URL</div>
-            <div className="mt-1 text-sm font-medium truncate">
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+            <div className="text-xs text-gray-600 uppercase font-display mb-2">Target URL</div>
+            <div className="text-sm font-medium truncate font-display text-black">
               {assessment.targetUrl}
             </div>
           </div>
@@ -130,16 +131,17 @@ export default function AssessmentDetailContent({
       </div>
 
       {assessment.status === "running" ? (
-        <div className="rounded-lg border border-slate-800 bg-slate-900 p-12 text-center">
-          <div className="flex flex-col items-center gap-4">
+        <div className="rounded-2xl border border-sky-500/30 bg-white p-12 text-center animate-fade-in">
+          <div className="flex flex-col items-center gap-6">
             <div className="relative">
-              <div className="w-16 h-16 border-4 border-slate-700 border-t-sky-500 rounded-full animate-spin"></div>
+              <div className="w-20 h-20 border-4 border-gray-300 border-t-sky-500 rounded-full animate-spin"></div>
+              <div className="absolute inset-0 border-4 border-transparent border-r-cyan-500 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-slate-100">
+              <h3 className="text-xl font-display font-semibold text-black">
                 Scan in Progress
               </h3>
-              <p className="text-sm text-slate-400 mt-1">
+              <p className="text-sm text-gray-700 mt-2 font-display">
                 Running security assessment... This may take a few seconds.
               </p>
             </div>

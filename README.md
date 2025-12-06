@@ -1,4 +1,4 @@
-# Pentest Platform
+# CHACK
 
 A comprehensive security assessment platform for managing blackbox and whitebox penetration testing workflows.
 

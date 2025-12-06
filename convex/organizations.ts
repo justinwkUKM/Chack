@@ -1,6 +1,6 @@
 // convex/organizations.ts
 
-import { query } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 // Get all organizations for a user (via memberships)
@@ -145,5 +145,92 @@ export const getAssessments = query({
     }
 
     return allAssessments.sort((a, b) => b.createdAt - a.createdAt);
+  },
+});
+
+// Update organization name
+export const updateName = mutation({
+  args: {
+    orgId: v.string(),
+    name: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const org = await ctx.db.get(args.orgId as any);
+    if (!org) {
+      throw new Error("Organization not found");
+    }
+
+    const slug = args.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    await ctx.db.patch(args.orgId as any, {
+      name: args.name,
+      slug,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+// Update organization plan
+export const updatePlan = mutation({
+  args: {
+    orgId: v.string(),
+    plan: v.string(), // "free" | "pro" | "enterprise"
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const org = await ctx.db.get(args.orgId as any);
+    if (!org || !("plan" in org) || !("credits" in org)) {
+      throw new Error("Organization not found");
+    }
+
+    const oldPlan = org.plan as string;
+    const currentCredits = (org.credits as number) ?? 0;
+
+    // Calculate new credits based on plan
+    let newCredits = currentCredits; // Credits carry over
+    let creditsToAdd = 0;
+
+    if (args.plan === "pro" && oldPlan === "free") {
+      // Upgrade: add 1000 credits (carry over existing)
+      creditsToAdd = 1000;
+      newCredits = currentCredits + 1000;
+    } else if (args.plan === "free" && oldPlan === "pro") {
+      // Downgrade: keep existing credits
+      newCredits = currentCredits;
+    } else if (args.plan === "enterprise") {
+      // Enterprise: keep existing credits, no limit
+      newCredits = currentCredits;
+    }
+
+    // Update organization
+    await ctx.db.patch(args.orgId as any, {
+      plan: args.plan,
+      credits: newCredits,
+      updatedAt: Date.now(),
+    });
+
+    // Create transaction record
+    if (creditsToAdd > 0) {
+      await ctx.db.insert("creditTransactions", {
+        orgId: args.orgId,
+        type: "plan_upgrade",
+        amount: creditsToAdd,
+        balanceAfter: newCredits,
+        description: `Plan upgrade: ${oldPlan} → ${args.plan}`,
+        createdByUserId: args.userId,
+        createdAt: Date.now(),
+      });
+    } else if (args.plan !== oldPlan) {
+      await ctx.db.insert("creditTransactions", {
+        orgId: args.orgId,
+        type: args.plan === "enterprise" ? "plan_upgrade" : "plan_downgrade",
+        amount: 0,
+        balanceAfter: newCredits,
+        description: `Plan change: ${oldPlan} → ${args.plan}`,
+        createdByUserId: args.userId,
+        createdAt: Date.now(),
+      });
+    }
+
+    return { credits: newCredits };
   },
 });

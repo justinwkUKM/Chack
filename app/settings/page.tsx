@@ -1,12 +1,12 @@
-// app/dashboard/page.tsx
+// app/settings/page.tsx
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { checkOnboarding } from "@/app/actions/onboarding";
-import DashboardLayout from "@/components/dashboard-layout";
+import SettingsLayout from "@/components/settings-layout";
 
-export default async function DashboardPage() {
+export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
 
   if (!session) {
@@ -21,7 +21,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex bg-white">
-      <DashboardLayout userId={session.user.id} />
+      <SettingsLayout userId={session.user.id} />
     </div>
   );
 }

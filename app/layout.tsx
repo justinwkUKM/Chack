@@ -9,7 +9,7 @@ import { UserSync } from "@/components/user-sync";
 import { OnboardingCheck } from "@/components/onboarding-check";
 
 export const metadata: Metadata = {
-  title: "Pentest Platform",
+  title: "CHACK",
   description: "Blackbox & whitebox security assessment platform",
 };
 
@@ -20,7 +20,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-slate-950 text-slate-100">
+      <body className="min-h-screen bg-white text-black">
         <AuthProvider>
           <ConvexClientProvider>
             <UserSync />

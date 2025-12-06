@@ -49,6 +49,47 @@ export const create = mutation({
     createdByUserId: v.string(),
   },
   handler: async (ctx, args) => {
+    // Get project to find organization
+    const project = await ctx.db.get(args.projectId as any);
+    if (!project || !("orgId" in project)) {
+      throw new Error("Project not found");
+    }
+
+    const orgId = project.orgId as string;
+
+    // Check if organization has enough credits
+    const org = await ctx.db.get(orgId as any);
+    if (!org) {
+      throw new Error("Organization not found");
+    }
+
+    // Handle backward compatibility
+    let orgCredits: number;
+    if (!("credits" in org) || org.credits === undefined) {
+      const plan = ("plan" in org ? org.plan : "free") as string;
+      orgCredits = plan === "pro" ? 1000 : 10;
+      // Backfill credits
+      await ctx.db.patch(orgId as any, {
+        credits: orgCredits,
+        updatedAt: Date.now(),
+      });
+    } else {
+      orgCredits = (org.credits as number) ?? 0;
+    }
+
+    if (orgCredits < 1) {
+      throw new Error("Insufficient credits. Please upgrade your plan.");
+    }
+
+    // Deduct 1 credit before creating assessment
+    const newBalance = orgCredits - 1;
+
+    // Update organization credits
+    await ctx.db.patch(orgId as any, {
+      credits: newBalance,
+      updatedAt: Date.now(),
+    });
+
     const now = Date.now();
     const assessmentId = await ctx.db.insert("assessments", {
       projectId: args.projectId,
@@ -62,6 +103,18 @@ export const create = mutation({
       startedAt: now,
       createdAt: now,
       updatedAt: now,
+    });
+
+    // Create credit transaction record
+    await ctx.db.insert("creditTransactions", {
+      orgId: orgId,
+      type: "deduct",
+      amount: -1,
+      balanceAfter: newBalance,
+      description: `Assessment: ${args.name}`,
+      assessmentId: assessmentId,
+      createdByUserId: args.createdByUserId,
+      createdAt: now,
     });
 
     return assessmentId;

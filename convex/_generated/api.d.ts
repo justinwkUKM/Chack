@@ -10,7 +10,9 @@
 
 import type * as assessments from "../assessments.js";
 import type * as auth from "../auth.js";
+import type * as credits from "../credits.js";
 import type * as findings from "../findings.js";
+import type * as migrations from "../migrations.js";
 import type * as onboarding from "../onboarding.js";
 import type * as organizations from "../organizations.js";
 import type * as projects from "../projects.js";
@@ -26,7 +28,9 @@ import type {
 declare const fullApi: ApiFromModules<{
   assessments: typeof assessments;
   auth: typeof auth;
+  credits: typeof credits;
   findings: typeof findings;
+  migrations: typeof migrations;
   onboarding: typeof onboarding;
   organizations: typeof organizations;
   projects: typeof projects;

@@ -11,6 +11,7 @@ export default defineSchema({
     name: v.string(),
     image: v.string(),
     provider: v.string(), // "google" | "github"
+    theme: v.optional(v.string()), // "light" | "dark"
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -23,6 +24,7 @@ export default defineSchema({
     slug: v.string(),
     createdByUserId: v.string(), // NextAuth user id (sub)
     plan: v.string(), // free | pro | enterprise
+    credits: v.optional(v.number()), // Available credits (optional for backward compatibility)
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -99,5 +101,19 @@ export default defineSchema({
     createdByUserId: v.string(),
     createdAt: v.number(),
   }).index("by_assessment", ["assessmentId"]),
+
+  // Credit transactions table - tracks credit usage and additions
+  creditTransactions: defineTable({
+    orgId: v.string(),
+    type: v.string(), // "deduct" | "add" | "plan_upgrade" | "plan_downgrade"
+    amount: v.number(), // Positive for add, negative for deduct
+    balanceAfter: v.number(), // Credits after this transaction
+    description: v.string(), // Description of the transaction
+    assessmentId: v.optional(v.string()), // If related to an assessment
+    createdByUserId: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_org_created", ["orgId", "createdAt"]),
 });
 
