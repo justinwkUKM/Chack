@@ -3,9 +3,65 @@
 import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { fetchMutation } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
 
 const API_URL = process.env.ASSESSMENT_API_URL || "https://chack.ngrok.app";
 const APP_NAME = process.env.ASSESSMENT_APP_NAME || "Nassa";
+
+// Helper function to check for report and update assessment
+async function checkAndUpdateReport(
+  assessmentId: string,
+  sessionId: string,
+  scanType: string
+): Promise<void> {
+  console.log(`[Report Check] Attempting to fetch report for session: ${sessionId}`);
+  
+  try {
+    // Call the report API  
+    const reportApiUrl = `${API_URL}/api/reports/${sessionId}`;
+    
+    const reportResponse = await fetch(reportApiUrl, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!reportResponse.ok) {
+      console.log(`[Report Check] Report not ready yet (${reportResponse.status})`);
+      return;
+    }
+
+    const reportData = await reportResponse.json();
+    
+    if (!reportData || !reportData.report) {
+      console.log(`[Report Check] No report data available`);
+      return;
+    }
+
+    console.log(`[Report Check] ✅ Report found! Updating assessment...`);
+
+    // Parse the report and update assessment
+    await fetchMutation(api.assessments.parseReport, {
+      assessmentId,
+      report: reportData.report,
+      userId: "system",
+    });
+
+    // Update assessment status to completed
+    await fetchMutation(api.assessments.updateStatus, {
+      assessmentId,
+      status: "completed",
+      completedAt: Date.now(),
+    });
+
+    console.log(`[Report Check] ✅ Assessment marked as completed with report data`);
+  } catch (error) {
+    console.log(`[Report Check] Error:`, error);
+    throw error;
+  }
+}
 
 export async function POST(
   request: NextRequest,
@@ -288,10 +344,24 @@ export async function POST(
             }
             isClosed = true;
           }
+        } finally {
+          // Stream finished or was cancelled - try to fetch report
+          if (isClosed) {
+            console.log(`[Scan API] Stream closed - checking for report...`);
+            try {
+              await checkAndUpdateReport(assessmentId, sessionId, scanType);
+            } catch (err) {
+              console.log(`[Scan API] Could not fetch report:`, err);
+            }
+          }
         }
       },
       cancel() {
         console.log(`[Scan API] Stream cancelled by client`);
+        // Attempt to fetch report after cancellation
+        checkAndUpdateReport(assessmentId, sessionId, scanType).catch((err) => {
+          console.log(`[Scan API] Could not fetch report after cancel:`, err);
+        });
       },
     });
 

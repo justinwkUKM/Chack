@@ -31,6 +31,7 @@ interface UseSSEOptions {
   onComplete?: (report?: string) => void;
   onError?: (error: Error) => void;
   onStart?: (response: Response) => void; // Add onStart callback
+  onStreamEnd?: () => void; // Called when stream ends (complete or cancelled)
   method?: "GET" | "POST";
   body?: any;
 }
@@ -146,6 +147,12 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
           if (done) {
             console.log(`[useSSE] Stream ended. Total events: ${eventCount}`);
             setIsStreaming(false);
+            
+            // Call onStreamEnd callback
+            if (currentOptions.onStreamEnd) {
+              currentOptions.onStreamEnd();
+            }
+            
             if (currentOptions.onComplete && !hasReport) {
               currentOptions.onComplete();
             }

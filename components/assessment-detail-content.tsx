@@ -145,6 +145,23 @@ export default function AssessmentDetailContent({
         }
       }, 2000);
     },
+    onStreamEnd: async () => {
+      console.log("[AssessmentDetail] Stream ended - attempting to fetch report...");
+      // When stream ends (cancelled or completed), try to fetch report
+      if (assessment) {
+        // Wait a bit for backend to finalize report
+        setTimeout(async () => {
+          setIsFetchingReport(true);
+          try {
+            await fetchReport(assessmentId, assessment.type as "blackbox" | "whitebox");
+          } catch (err) {
+            console.log("[AssessmentDetail] Could not fetch report after stream end:", err);
+          } finally {
+            setIsFetchingReport(false);
+          }
+        }, 3000); // Wait 3 seconds for backend to process
+      }
+    },
     onComplete: async (report) => {
       // Persist any remaining logs
       if (pendingLogs.current.length > 0) {
