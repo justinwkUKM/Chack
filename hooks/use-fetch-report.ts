@@ -11,6 +11,15 @@ export interface ReportData {
   length?: number;
   hasMarkers?: boolean;
   error?: string;
+  validation?: {
+    valid: boolean;
+    missingKeywords: string[];
+    missingSections: string[];
+    keywordCount: number;
+    sectionCount: number;
+    totalKeywords: number;
+    totalSections: number;
+  };
   details?: {
     sessionId?: string;
     reportType?: string;

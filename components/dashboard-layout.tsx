@@ -58,7 +58,7 @@ export default function DashboardLayout({ userId }: DashboardLayoutProps) {
                           Your security copilot is live
                         </h1>
                         <p className="text-sm text-muted-foreground font-display max-w-2xl">
-                          Tracking {defaultOrg.name} with always-on coverage. Review signals,
+                          Tracking {'name' in defaultOrg ? defaultOrg.name : 'your organization'} with always-on coverage. Review signals,
                           launch checks, and keep your stakeholders in the loop.
                         </p>
                       </div>
@@ -76,7 +76,7 @@ export default function DashboardLayout({ userId }: DashboardLayoutProps) {
                       />
                       <StatPill
                         label="Credits"
-                        value={typeof defaultOrg.credits === "number" ? defaultOrg.credits : "—"}
+                        value={'credits' in defaultOrg && typeof defaultOrg.credits === "number" ? defaultOrg.credits : "—"}
                         hint="available"
                       />
                     </div>

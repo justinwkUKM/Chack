@@ -11,6 +11,7 @@ import { Trash2 } from "lucide-react";
 import FindingsList from "./findings-list";
 import ResultsList from "./results-list";
 import TerminalViewer from "./terminal-viewer";
+import ReportViewer from "./report-viewer";
 import { useSSE } from "@/hooks/use-sse";
 import { useFetchReport } from "@/hooks/use-fetch-report";
 import { useToast } from "./toast";
@@ -40,6 +41,7 @@ export default function AssessmentDetailContent({
   const [isFetchingReport, setIsFetchingReport] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showReportViewer, setShowReportViewer] = useState(false);
   const logsPersistTimer = useRef<NodeJS.Timeout | null>(null);
   const pendingLogs = useRef<any[]>([]);
 
@@ -50,7 +52,7 @@ export default function AssessmentDetailContent({
   // Only send targetUrl, gitRepoUrl, and type (NO userId)
   const requestBody = useMemo(
     () =>
-      assessment && (assessment.targetUrl || assessment.gitRepoUrl)
+      assessment && ('targetUrl' in assessment || 'gitRepoUrl' in assessment) && (assessment.targetUrl || assessment.gitRepoUrl)
         ? {
             targetUrl: assessment.targetUrl || "",
             gitRepoUrl: assessment.gitRepoUrl || "",
@@ -73,6 +75,8 @@ export default function AssessmentDetailContent({
     onSuccess: async (data) => {
       if (data.success && data.report && assessment) {
         console.log("[AssessmentDetail] Report fetched successfully, parsing...");
+        // Show the report viewer
+        setShowReportViewer(true);
         try {
           await parseReport({
             assessmentId,
@@ -114,24 +118,43 @@ export default function AssessmentDetailContent({
             });
           }
           if (part.functionCall) {
+            const funcName = part.functionCall.name;
+            const funcArgs = part.functionCall.args 
+              ? `\n  Args: ${JSON.stringify(part.functionCall.args, null, 2)}` 
+              : "";
             pendingLogs.current.push({
               assessmentId,
               timestamp: event.timestamp || Date.now(),
               author: event.author || "agent",
-              text: part.functionCall.name,
+              text: `${funcName}${funcArgs}`,
               type: "functionCall",
             });
           }
           if (part.functionResponse) {
+            const funcName = part.functionResponse.name;
+            const funcResponse = part.functionResponse.response
+              ? `\n  Response: ${JSON.stringify(part.functionResponse.response, null, 2)}`
+              : "";
             pendingLogs.current.push({
               assessmentId,
               timestamp: event.timestamp || Date.now(),
               author: event.author || "agent",
-              text: part.functionResponse.name,
+              text: `${funcName}${funcResponse}`,
               type: "functionResponse",
             });
           }
         }
+      }
+      
+      // Handle events without parts (notifications)
+      if ((!event.content?.parts || event.content.parts.length === 0) && (event.type || event.role)) {
+        pendingLogs.current.push({
+          assessmentId,
+          timestamp: event.timestamp || Date.now(),
+          author: event.author || event.role || "system",
+          text: JSON.stringify(event),
+          type: "notification",
+        });
       }
 
       // Batch persist logs every 2 seconds
@@ -152,7 +175,7 @@ export default function AssessmentDetailContent({
     onStreamEnd: async () => {
       console.log("[AssessmentDetail] Stream ended - attempting to fetch report...");
       // When stream ends (cancelled or completed), try to fetch report
-      if (assessment && assessment.type) {
+      if (assessment && 'type' in assessment && assessment.type) {
         // Wait a bit for backend to finalize report
         setTimeout(async () => {
           setIsFetchingReport(true);
@@ -199,7 +222,7 @@ export default function AssessmentDetailContent({
             completedAt: Date.now(),
           });
         }
-      } else if (!report && assessment && assessment.type) {
+      } else if (!report && assessment && 'type' in assessment && assessment.type) {
         // If no report extracted from stream, try fetching from session
         console.log("[AssessmentDetail] No report in stream, attempting to fetch from session...");
         setIsFetchingReport(true);
@@ -244,9 +267,9 @@ export default function AssessmentDetailContent({
   useEffect(() => {
     if (assessment?.status === "running" && !scanTriggered.current) {
       // Check if we have required data
-      const hasTarget = assessment.type === "blackbox"
-        ? !!assessment.targetUrl 
-        : !!assessment.gitRepoUrl;
+      const hasTarget = 'type' in assessment && assessment.type === "blackbox"
+        ? ('targetUrl' in assessment && !!assessment.targetUrl)
+        : ('gitRepoUrl' in assessment && !!assessment.gitRepoUrl);
       
       if (!hasTarget) {
         console.warn("[AssessmentDetail] Missing target URL or git repo URL");
@@ -357,7 +380,7 @@ export default function AssessmentDetailContent({
       showSuccess("✨ Assessment deleted successfully!");
       // Small delay before redirect to ensure UI updates
       setTimeout(() => {
-        router.push(assessment.projectId ? `/projects/${assessment.projectId}` : "/dashboard");
+        router.push('projectId' in assessment && assessment.projectId ? `/projects/${assessment.projectId}` : "/dashboard");
       }, 500);
     } catch (error: any) {
       console.error("Delete error:", error);
@@ -371,18 +394,27 @@ export default function AssessmentDetailContent({
   return (
     <>
       {ToastComponent}
+      
+      {/* Report Viewer Modal */}
+      {showReportViewer && reportData && reportData.success && (
+        <ReportViewer 
+          reportData={reportData} 
+          onClose={() => setShowReportViewer(false)} 
+        />
+      )}
+      
       <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <Link
-            href={assessment.projectId ? `/projects/${assessment.projectId}` : "/dashboard"}
+            href={'projectId' in assessment && assessment.projectId ? `/projects/${assessment.projectId}` : "/dashboard"}
             className="text-muted-foreground hover:text-primary transition-colors font-display flex-shrink-0"
           >
             ← Back to Project
           </Link>
           <div className="flex-1 min-w-0">
-            <h1 className="text-3xl font-display font-bold text-foreground truncate">{assessment.name}</h1>
-            {assessment.description && (
+            <h1 className="text-3xl font-display font-bold text-foreground truncate">{'name' in assessment ? assessment.name : 'Unknown'}</h1>
+            {'description' in assessment && assessment.description && (
               <p className="text-sm text-muted-foreground">{assessment.description}</p>
             )}
           </div>
@@ -414,7 +446,7 @@ export default function AssessmentDetailContent({
               Delete Assessment?
             </h3>
             <p className="text-sm text-muted-foreground mb-6">
-              Are you sure you want to delete <strong className="text-foreground">{assessment.name}</strong>? 
+              Are you sure you want to delete <strong className="text-foreground">{'name' in assessment ? assessment.name : 'this assessment'}</strong>? 
               This will permanently delete the assessment and all its findings and results. 
               This action cannot be undone.
             </p>
@@ -452,16 +484,16 @@ export default function AssessmentDetailContent({
         <div className="rounded-xl border border-border bg-card p-4">
           <div className="text-xs text-muted-foreground uppercase font-display mb-2">Type</div>
           <div className="text-sm font-medium capitalize font-display text-foreground">
-            {assessment.type}
+            {'type' in assessment ? assessment.type : 'Unknown'}
           </div>
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
           <div className="text-xs text-muted-foreground uppercase font-display mb-2">Target Type</div>
           <div className="text-sm font-medium capitalize font-display text-foreground">
-            {assessment.targetType}
+            {'targetType' in assessment ? assessment.targetType : 'Unknown'}
           </div>
         </div>
-        {assessment.targetUrl && (
+        {'targetUrl' in assessment && assessment.targetUrl && (
           <div className="rounded-xl border border-border bg-card p-4">
             <div className="text-xs text-muted-foreground uppercase font-display mb-2">Target URL</div>
             <div className="text-sm font-medium truncate font-display text-foreground">
@@ -469,7 +501,7 @@ export default function AssessmentDetailContent({
             </div>
           </div>
         )}
-        {assessment.gitRepoUrl && (
+        {'gitRepoUrl' in assessment && assessment.gitRepoUrl && (
           <div className="rounded-xl border border-border bg-card p-4">
             <div className="text-xs text-muted-foreground uppercase font-display mb-2">Git Repository</div>
             <div className="text-sm font-medium truncate font-display text-foreground">
@@ -533,7 +565,7 @@ export default function AssessmentDetailContent({
               </p>
               <button
                 onClick={async () => {
-                  if (assessment && assessment.type) {
+                  if (assessment && 'type' in assessment && assessment.type) {
                     setIsFetchingReport(true);
                     try {
                       await fetchReport(assessmentId, assessment.type as "blackbox" | "whitebox");
@@ -559,7 +591,22 @@ export default function AssessmentDetailContent({
             {finalReport && <div>✅ Report extracted ({finalReport.length} chars)</div>}
             {isFetchingReport && <div>📥 Fetching report from session...</div>}
             {reportData && reportData.success && (
-              <div>✅ Report fetched from {reportData.source} ({reportData.length} chars)</div>
+              <div className="space-y-1">
+                <div>✅ Report fetched from {reportData.source} ({reportData.length} chars)</div>
+                {reportData.validation && (
+                  <div className={reportData.validation.valid ? "text-green-600" : "text-yellow-600"}>
+                    {reportData.validation.valid ? '✓' : '⚠'} Validation: {reportData.validation.valid ? 'PASSED' : 'INCOMPLETE'} 
+                    ({reportData.validation.keywordCount}/{reportData.validation.totalKeywords} keywords, 
+                    {reportData.validation.sectionCount}/{reportData.validation.totalSections} sections)
+                  </div>
+                )}
+                <button
+                  onClick={() => setShowReportViewer(true)}
+                  className="mt-2 px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                >
+                  View Full Report
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -575,21 +622,21 @@ export default function AssessmentDetailContent({
                   Review the findings and results below, or fetch the full report.
                 </p>
               </div>
-            <button
-              onClick={async () => {
-                if (assessment && 'type' in assessment && assessment.type) {
-                  setIsFetchingReport(true);
-                  try {
-                    await fetchReport(assessmentId, assessment.type as "blackbox" | "whitebox");
-                  } finally {
-                    setIsFetchingReport(false);
+              <button
+                onClick={async () => {
+                  if (assessment && 'type' in assessment && assessment.type) {
+                    setIsFetchingReport(true);
+                    try {
+                      await fetchReport(assessmentId, assessment.type as "blackbox" | "whitebox");
+                    } finally {
+                      setIsFetchingReport(false);
+                    }
                   }
-                }
-              }}
+                }}
                 disabled={isLoadingReport || isFetchingReport}
                 className="px-4 py-2 bg-green-600 text-white text-sm font-display rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {isLoadingReport || isFetchingReport ? "Fetching..." : "Fetch Report"}
+                {isLoadingReport || isFetchingReport ? "Fetching..." : "View Report"}
               </button>
             </div>
           )}

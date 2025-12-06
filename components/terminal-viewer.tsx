@@ -9,7 +9,8 @@ interface LogEntry {
   timestamp?: number;
   author: string;
   text: string;
-  type?: "text" | "functionCall" | "functionResponse";
+  type?: "text" | "functionCall" | "functionResponse" | "notification" | "event";
+  raw?: any;
 }
 
 interface TerminalViewerProps {
@@ -31,11 +32,6 @@ export default function TerminalViewer({ logs, isStreaming = false }: TerminalVi
     if (!timestamp) return "";
     const date = new Date(timestamp * 1000);
     return date.toLocaleTimeString("en-US", { hour12: false });
-  };
-
-  const truncateText = (text: string, maxLength: number = 200) => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + "...";
   };
 
   return (
@@ -82,15 +78,23 @@ export default function TerminalViewer({ logs, isStreaming = false }: TerminalVi
               {": "}
               <span className="text-gray-300">
                 {log.type === "functionCall" ? (
-                  <span className="text-yellow-400">
-                    Calling function: {truncateText(log.text)}
+                  <span className="text-yellow-400 whitespace-pre-wrap break-words">
+                    🔧 Calling function: {log.text}
                   </span>
                 ) : log.type === "functionResponse" ? (
-                  <span className="text-blue-400">
-                    Function response: {truncateText(log.text)}
+                  <span className="text-blue-400 whitespace-pre-wrap break-words">
+                    ✓ Function response: {log.text}
+                  </span>
+                ) : log.type === "notification" ? (
+                  <span className="text-purple-400 whitespace-pre-wrap break-words">
+                    📢 {log.text}
+                  </span>
+                ) : log.type === "event" ? (
+                  <span className="text-cyan-400 whitespace-pre-wrap break-words">
+                    ⚡ {log.text}
                   </span>
                 ) : (
-                  truncateText(log.text, 500)
+                  <span className="whitespace-pre-wrap break-words">{log.text}</span>
                 )}
               </span>
             </div>

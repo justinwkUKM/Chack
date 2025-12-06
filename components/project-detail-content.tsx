@@ -83,8 +83,8 @@ export default function ProjectDetailContent({
             ← Back to Dashboard
           </Link>
           <div className="flex-1 min-w-0">
-            <h1 className="text-3xl font-display font-bold text-foreground truncate">{project.name}</h1>
-            {project.description && (
+            <h1 className="text-3xl font-display font-bold text-foreground truncate">{'name' in project ? project.name : 'Unknown'}</h1>
+            {'description' in project && project.description && (
               <p className="text-sm text-muted-foreground">{project.description}</p>
             )}
           </div>
@@ -108,7 +108,7 @@ export default function ProjectDetailContent({
               Delete Project?
             </h3>
             <p className="text-sm text-muted-foreground mb-6">
-              Are you sure you want to delete <strong className="text-foreground">{project.name}</strong>? 
+              Are you sure you want to delete <strong className="text-foreground">{'name' in project ? project.name : 'this project'}</strong>? 
               This will permanently delete the project and all its assessments, findings, and results. 
               This action cannot be undone.
             </p>

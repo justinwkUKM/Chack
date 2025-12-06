@@ -8,14 +8,18 @@ interface SSEEvent {
       text?: string;
       functionCall?: {
         name: string;
+        args?: any;
       };
       functionResponse?: {
         name: string;
+        response?: any;
       };
     }>;
   };
   author?: string;
   timestamp?: number;
+  type?: string;
+  role?: string;
 }
 
 interface LogEntry {
@@ -23,7 +27,8 @@ interface LogEntry {
   timestamp?: number;
   author: string;
   text: string;
-  type?: "text" | "functionCall" | "functionResponse";
+  type?: "text" | "functionCall" | "functionResponse" | "notification" | "event";
+  raw?: any; // Store raw event data
 }
 
 interface UseSSEOptions {
@@ -194,11 +199,14 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
                 const data: SSEEvent = JSON.parse(dataLine);
 
                 // Log first few events for debugging
-                if (eventCount <= 3) {
+                if (eventCount <= 5) {
                   console.log(`[useSSE] Event ${eventCount}:`, {
                     author: data.author,
+                    type: data.type,
+                    role: data.role,
                     hasContent: !!data.content,
                     partsCount: data.content?.parts?.length || 0,
+                    rawEvent: data,
                   });
                 }
 
@@ -209,8 +217,19 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
 
                 const content = data.content;
                 const parts = content?.parts || [];
-                const author = data.author || "unknown";
+                const author = data.author || data.role || "unknown";
                 const timestamp = data.timestamp;
+
+                // If no parts but has type/role info, add as notification
+                if (parts.length === 0 && (data.type || data.role)) {
+                  addLog({
+                    author,
+                    text: JSON.stringify(data),
+                    timestamp,
+                    type: "notification",
+                    raw: data,
+                  });
+                }
 
                 for (const part of parts) {
                   // Handle text content
@@ -221,6 +240,7 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
                       text,
                       timestamp,
                       type: "text",
+                      raw: part,
                     });
 
                     // Check for final report
@@ -241,21 +261,31 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
 
                   // Handle function calls
                   if (part.functionCall) {
+                    const funcName = part.functionCall.name;
+                    const funcArgs = part.functionCall.args 
+                      ? `\n  Args: ${JSON.stringify(part.functionCall.args, null, 2)}` 
+                      : "";
                     addLog({
                       author,
-                      text: part.functionCall.name,
+                      text: `${funcName}${funcArgs}`,
                       timestamp,
                       type: "functionCall",
+                      raw: part.functionCall,
                     });
                   }
 
                   // Handle function responses
                   if (part.functionResponse) {
+                    const funcName = part.functionResponse.name;
+                    const funcResponse = part.functionResponse.response
+                      ? `\n  Response: ${JSON.stringify(part.functionResponse.response, null, 2)}`
+                      : "";
                     addLog({
                       author,
-                      text: part.functionResponse.name,
+                      text: `${funcName}${funcResponse}`,
                       timestamp,
                       type: "functionResponse",
+                      raw: part.functionResponse,
                     });
                   }
                 }

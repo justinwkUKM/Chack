@@ -45,7 +45,7 @@ export default function SettingsContent({
   
   useEffect(() => {
     if (org) {
-      setOrgName(org.name || "");
+      setOrgName('name' in org ? org.name || "" : "");
     }
   }, [org]);
 
@@ -84,7 +84,7 @@ export default function SettingsContent({
       showToast("Failed to update organization name. Please try again.", "error");
       // Reset to current value on error
       if (org) {
-        setOrgName(org.name || "");
+        setOrgName('name' in org ? org.name || "" : "");
       }
     } finally {
       setSaving(false);
@@ -200,7 +200,7 @@ export default function SettingsContent({
                 </label>
                 <input
                   type="email"
-                  value={user.email}
+                  value={user?.email || ""}
                   disabled
                   className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-500 cursor-not-allowed"
                 />
@@ -214,7 +214,7 @@ export default function SettingsContent({
                 </label>
                 <input
                   type="text"
-                  value={user.provider === "google" ? "Google" : "GitHub"}
+                  value={user?.provider === "google" ? "Google" : "GitHub"}
                   disabled
                   className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-500 cursor-not-allowed"
                 />
@@ -255,7 +255,7 @@ export default function SettingsContent({
                 </label>
                 <input
                   type="text"
-                  value={org.slug}
+                  value={org && 'slug' in org ? org.slug : ""}
                   disabled
                   className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-500 cursor-not-allowed"
                 />
@@ -269,7 +269,7 @@ export default function SettingsContent({
                 </label>
                 <input
                   type="text"
-                  value={org.plan.toUpperCase()}
+                  value={org && 'plan' in org ? org.plan.toUpperCase() : ""}
                   disabled
                   className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-500 cursor-not-allowed"
                 />
@@ -284,11 +284,11 @@ export default function SettingsContent({
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    value={org.credits ?? 0}
+                    value={org && 'credits' in org ? org.credits ?? 0 : 0}
                     disabled
                     className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-500 cursor-not-allowed"
                   />
-                  {org.credits !== undefined && org.credits < 3 && (
+                  {org && 'credits' in org && org.credits !== undefined && org.credits < 3 && (
                     <span className="text-xs text-yellow-700 font-medium">
                       Low credits!
                     </span>
@@ -316,14 +316,14 @@ export default function SettingsContent({
               {/* Free Plan */}
               <div
                 className={`rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
-                  org.plan === "free"
+                  org && 'plan' in org && org.plan === "free"
                     ? "border-primary/60 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent dark:from-primary/20 dark:via-primary/10 dark:to-primary/5"
                     : "border-border bg-card/70 hover:bg-secondary/60"
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-display font-semibold text-foreground">Free</h3>
-                  {org.plan === "free" && (
+                  {org && 'plan' in org && org.plan === "free" && (
                     <span className="text-xs bg-gradient-to-r from-sky-500 to-cyan-500 text-white px-3 py-1 rounded-full font-medium animate-pulse-slow">
                       Current
                     </span>
@@ -335,7 +335,7 @@ export default function SettingsContent({
                   <li>✓ Basic features</li>
                   <li>✓ Community support</li>
                 </ul>
-                {org.plan !== "free" && (
+                {org && 'plan' in org && org.plan !== "free" && (
                   <button
                     onClick={() => handlePlanChange("free")}
                     disabled={saving}
@@ -349,14 +349,14 @@ export default function SettingsContent({
               {/* Pro Plan */}
               <div
                 className={`rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
-                  org.plan === "pro"
+                  org && 'plan' in org && org.plan === "pro"
                     ? "border-primary/60 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent dark:from-primary/20 dark:via-primary/10 dark:to-primary/5"
                     : "border-border bg-card/70 hover:bg-secondary/60"
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-display font-semibold text-foreground">Pro</h3>
-                  {org.plan === "pro" && (
+                  {org && 'plan' in org && org.plan === "pro" && (
                     <span className="text-xs bg-gradient-to-r from-sky-500 to-cyan-500 text-white px-3 py-1 rounded-full font-medium animate-pulse-slow">
                       Current
                     </span>
@@ -369,13 +369,13 @@ export default function SettingsContent({
                   <li>✓ Priority support</li>
                   <li>✓ Advanced analytics</li>
                 </ul>
-                {org.plan !== "pro" && (
+                {org && 'plan' in org && org.plan !== "pro" && (
                   <button
                     onClick={() => handlePlanChange("pro")}
                     disabled={saving}
                     className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 px-4 py-3 text-sm font-semibold text-white hover:from-sky-400 hover:to-cyan-400 disabled:opacity-50 hover:scale-105 hover:shadow-lg hover:shadow-sky-500/30 transition-all duration-300 font-display"
                   >
-                    {org.plan === "free" ? "Upgrade" : "Switch"}
+                    {org && 'plan' in org && org.plan === "free" ? "Upgrade" : "Switch"}
                   </button>
                 )}
               </div>
@@ -383,14 +383,14 @@ export default function SettingsContent({
               {/* Enterprise Plan */}
               <div
                 className={`rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
-                  org.plan === "enterprise"
+                  org && 'plan' in org && org.plan === "enterprise"
                     ? "border-primary/60 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent dark:from-primary/20 dark:via-primary/10 dark:to-primary/5"
                     : "border-border bg-card/70 hover:bg-secondary/60"
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-display font-semibold text-foreground">Enterprise</h3>
-                  {org.plan === "enterprise" && (
+                  {org && 'plan' in org && org.plan === "enterprise" && (
                     <span className="text-xs bg-gradient-to-r from-sky-500 to-cyan-500 text-white px-3 py-1 rounded-full font-medium animate-pulse-slow">
                       Current
                     </span>
@@ -404,7 +404,7 @@ export default function SettingsContent({
                   <li>✓ Dedicated support</li>
                   <li>✓ SLA guarantee</li>
                 </ul>
-                {org.plan !== "enterprise" && (
+                {org && 'plan' in org && org.plan !== "enterprise" && (
                   <button
                     onClick={() => handlePlanChange("enterprise")}
                     disabled={saving}

@@ -9,6 +9,77 @@ import { fetchQuery } from "convex/nextjs";
 const API_URL = process.env.ASSESSMENT_API_URL || "https://chack.ngrok.app";
 const APP_NAME = process.env.ASSESSMENT_APP_NAME || "Nassa";
 
+// Required keywords for report validation
+const WHITEBOX_REQUIRED_KEYWORDS = [
+  "Total vulnerabilities:",
+  "High severity:",
+  "Medium severity:",
+  "Repository analyzed:",
+];
+
+const BLACKBOX_REQUIRED_KEYWORDS = [
+  "Target tested:",
+  "Total vulnerabilities found:",
+  "Critical vulnerabilities:",
+  "Reconnaissance completed:",
+];
+
+const WHITEBOX_REQUIRED_SECTIONS = [
+  "# Whitebox Static Code Analysis Report",
+  "## Executive Summary",
+  "## Vulnerabilities Found",
+  "## Security Recommendations",
+];
+
+const BLACKBOX_REQUIRED_SECTIONS = [
+  "# Blackbox Security Assessment Report",
+  "## Executive Summary",
+  "## 1. Reconnaissance Phase",
+  "## 2. Exploitation Phase",
+];
+
+/**
+ * Validate that the report contains required keywords and sections
+ */
+function validateReport(reportContent: string, reportType: 'whitebox' | 'blackbox') {
+  const requiredKeywords = reportType === 'whitebox' 
+    ? WHITEBOX_REQUIRED_KEYWORDS 
+    : BLACKBOX_REQUIRED_KEYWORDS;
+  
+  const requiredSections = reportType === 'whitebox'
+    ? WHITEBOX_REQUIRED_SECTIONS
+    : BLACKBOX_REQUIRED_SECTIONS;
+
+  const missingKeywords: string[] = [];
+  const missingSections: string[] = [];
+
+  // Check for required keywords
+  for (const keyword of requiredKeywords) {
+    if (!reportContent.includes(keyword)) {
+      missingKeywords.push(keyword);
+    }
+  }
+
+  // Check for required sections
+  for (const section of requiredSections) {
+    if (!reportContent.includes(section)) {
+      missingSections.push(section);
+    }
+  }
+
+  const isValid = missingKeywords.length === 0 && missingSections.length === 0;
+
+  return {
+    valid: isValid,
+    missingKeywords,
+    missingSections,
+    keywordCount: requiredKeywords.length - missingKeywords.length,
+    sectionCount: requiredSections.length - missingSections.length,
+    totalKeywords: requiredKeywords.length,
+    totalSections: requiredSections.length,
+  };
+}
+
 /**
  * Extract report using markers from text
  */
@@ -161,6 +232,19 @@ export async function GET(
         console.log(`[Report API] Report length: ${report.length} characters`);
         console.log(`[Report API] Report lines: ${report.split('\n').length} lines`);
         
+        // Validate the report
+        const validation = validateReport(report, reportType);
+        console.log(`[Report API] Validation: ${validation.valid ? 'PASSED' : 'FAILED'}`);
+        console.log(`[Report API] Keywords: ${validation.keywordCount}/${validation.totalKeywords}`);
+        console.log(`[Report API] Sections: ${validation.sectionCount}/${validation.totalSections}`);
+        
+        if (validation.missingKeywords.length > 0) {
+          console.warn(`[Report API] Missing keywords:`, validation.missingKeywords);
+        }
+        if (validation.missingSections.length > 0) {
+          console.warn(`[Report API] Missing sections:`, validation.missingSections);
+        }
+        
         return new Response(
           JSON.stringify({
             success: true,
@@ -169,6 +253,7 @@ export async function GET(
             sessionId,
             reportType,
             length: report.length,
+            validation,
           }),
           {
             status: 200,
@@ -184,6 +269,7 @@ export async function GET(
     const state = sessionData.state || {};
     const stateKeys = [
       'static_analysis_result',
+      'final_blackbox_report',
       'recon_report',
       'whitebox_report',
       'blackbox_report',
@@ -202,6 +288,19 @@ export async function GET(
           console.log(`[Report API] ✅ Report extracted from state with markers!`);
           console.log(`[Report API] Report length: ${report.length} characters`);
           
+          // Validate the report
+          const validation = validateReport(report, reportType);
+          console.log(`[Report API] Validation: ${validation.valid ? 'PASSED' : 'FAILED'}`);
+          console.log(`[Report API] Keywords: ${validation.keywordCount}/${validation.totalKeywords}`);
+          console.log(`[Report API] Sections: ${validation.sectionCount}/${validation.totalSections}`);
+          
+          if (validation.missingKeywords.length > 0) {
+            console.warn(`[Report API] Missing keywords:`, validation.missingKeywords);
+          }
+          if (validation.missingSections.length > 0) {
+            console.warn(`[Report API] Missing sections:`, validation.missingSections);
+          }
+          
           return new Response(
             JSON.stringify({
               success: true,
@@ -210,6 +309,7 @@ export async function GET(
               sessionId,
               reportType,
               length: report.length,
+              validation,
             }),
             {
               status: 200,
@@ -217,9 +317,13 @@ export async function GET(
             }
           );
         } else if (stateText) {
-          // No markers, but we have text - return raw report
+          // No markers, but we have text - validate and return raw report
           console.log(`[Report API] ⚠ Report found without markers`);
           console.log(`[Report API] Report length: ${stateText.length} characters`);
+          
+          // Still validate even without markers
+          const validation = validateReport(stateText, reportType);
+          console.log(`[Report API] Validation: ${validation.valid ? 'PASSED' : 'FAILED'}`);
           
           return new Response(
             JSON.stringify({
@@ -230,6 +334,7 @@ export async function GET(
               reportType,
               length: stateText.length,
               hasMarkers: false,
+              validation,
             }),
             {
               status: 200,
