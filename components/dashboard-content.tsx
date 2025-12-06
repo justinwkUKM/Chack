@@ -33,14 +33,6 @@ export default function DashboardContent({ userId }: DashboardContentProps) {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-        <h2 className="text-lg font-semibold">{defaultOrg.name}</h2>
-        <p className="text-sm text-slate-400 mt-1">
-          Plan: <span className="capitalize">{defaultOrg.plan}</span> • Role:{" "}
-          <span className="capitalize">{defaultOrg.role}</span>
-        </p>
-      </div>
-
       <ProjectsList orgId={defaultOrg._id} />
     </div>
   );

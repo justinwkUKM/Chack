@@ -35,7 +35,9 @@ export default defineSchema({
     userId: v.string(),
     role: v.string(), // owner | admin | analyst | viewer
     createdAt: v.number(),
-  }).index("by_user", ["userId"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_org", ["orgId"]),
 
   // Projects table - belongs to an organization
   projects: defineTable({

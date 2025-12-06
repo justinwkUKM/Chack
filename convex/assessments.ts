@@ -80,7 +80,8 @@ export const runScan = mutation({
       throw new Error("Assessment not found");
     }
 
-    if (assessment.status !== "running") {
+    // Type check - ensure it's an assessment
+    if (!("status" in assessment) || assessment.status !== "running") {
       throw new Error("Assessment is not in running state");
     }
 
@@ -191,7 +192,9 @@ export const runScan = mutation({
         type: "scan_data",
         data: JSON.stringify({
           scanId: `scan-${args.assessmentId.slice(0, 8)}`,
-          startTime: new Date(assessment.startedAt || now).toISOString(),
+          startTime: new Date(
+            ("startedAt" in assessment ? assessment.startedAt : undefined) || now
+          ).toISOString(),
           endTime: new Date(now).toISOString(),
           totalRequests: 15420,
           vulnerabilitiesFound: 5,
