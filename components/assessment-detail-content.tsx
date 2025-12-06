@@ -148,7 +148,7 @@ export default function AssessmentDetailContent({
     onStreamEnd: async () => {
       console.log("[AssessmentDetail] Stream ended - attempting to fetch report...");
       // When stream ends (cancelled or completed), try to fetch report
-      if (assessment) {
+      if (assessment && 'type' in assessment && assessment.type) {
         // Wait a bit for backend to finalize report
         setTimeout(async () => {
           setIsFetchingReport(true);
@@ -173,7 +173,7 @@ export default function AssessmentDetailContent({
         }
       }
 
-      if (report && assessment) {
+      if (report && assessment && 'type' in assessment) {
         try {
           // Parse the report and create findings/results
           await parseReport({
@@ -195,7 +195,7 @@ export default function AssessmentDetailContent({
             completedAt: Date.now(),
           });
         }
-      } else if (!report && assessment) {
+      } else if (!report && assessment && 'type' in assessment && assessment.type) {
         // If no report extracted from stream, try fetching from session
         console.log("[AssessmentDetail] No report in stream, attempting to fetch from session...");
         setIsFetchingReport(true);
@@ -240,7 +240,7 @@ export default function AssessmentDetailContent({
   useEffect(() => {
     if (assessment?.status === "running" && !scanTriggered.current) {
       // Check if we have required data
-      const hasTarget = assessment.type === "blackbox" 
+      const hasTarget = ('type' in assessment && assessment.type === "blackbox")
         ? !!assessment.targetUrl 
         : !!assessment.gitRepoUrl;
       
@@ -529,7 +529,7 @@ export default function AssessmentDetailContent({
               </p>
               <button
                 onClick={async () => {
-                  if (assessment) {
+                  if (assessment && 'type' in assessment && assessment.type) {
                     setIsFetchingReport(true);
                     try {
                       await fetchReport(assessmentId, assessment.type as "blackbox" | "whitebox");
@@ -571,15 +571,17 @@ export default function AssessmentDetailContent({
                   Review the findings and results below, or fetch the full report.
                 </p>
               </div>
-              <button
-                onClick={async () => {
+            <button
+              onClick={async () => {
+                if (assessment && 'type' in assessment && assessment.type) {
                   setIsFetchingReport(true);
                   try {
                     await fetchReport(assessmentId, assessment.type as "blackbox" | "whitebox");
                   } finally {
                     setIsFetchingReport(false);
                   }
-                }}
+                }
+              }}
                 disabled={isLoadingReport || isFetchingReport}
                 className="px-4 py-2 bg-green-600 text-white text-sm font-display rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
