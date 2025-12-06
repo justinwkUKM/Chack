@@ -6,6 +6,8 @@ import { useEffect, useRef, useMemo, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
 import FindingsList from "./findings-list";
 import ResultsList from "./results-list";
 import TerminalViewer from "./terminal-viewer";
@@ -21,11 +23,15 @@ export default function AssessmentDetailContent({
   assessmentId,
   userId,
 }: AssessmentDetailContentProps) {
+  const router = useRouter();
   const assessment = useQuery(api.assessments.get, { assessmentId });
   const updateAssessmentStatus = useMutation(api.assessments.updateStatus);
   const parseReport = useMutation(api.assessments.parseReport);
+  const deleteAssessment = useMutation(api.assessments.deleteAssessment);
   const scanTriggered = useRef(false);
   const [isFetchingReport, setIsFetchingReport] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Setup SSE for real-time scanning
   const scanUrl = `/api/assessments/${assessmentId}/scan`;
@@ -218,29 +224,97 @@ export default function AssessmentDetailContent({
     }
   };
 
+  const handleDelete = async () => {
+    if (!assessment) return;
+    
+    setIsDeleting(true);
+    try {
+      await deleteAssessment({ assessmentId });
+      router.push(assessment.projectId ? `/projects/${assessment.projectId}` : "/dashboard");
+    } catch (error: any) {
+      alert(error.message || "Failed to delete assessment");
+      console.error("Delete error:", error);
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center gap-4">
-        <Link
-          href={assessment.projectId ? `/projects/${assessment.projectId}` : "/dashboard"}
-          className="text-muted-foreground hover:text-primary transition-colors font-display"
-        >
-          ← Back to Project
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-3xl font-display font-bold text-foreground">{assessment.name}</h1>
-          {assessment.description && (
-            <p className="text-sm text-muted-foreground">{assessment.description}</p>
-          )}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4 flex-1 min-w-0">
+          <Link
+            href={assessment.projectId ? `/projects/${assessment.projectId}` : "/dashboard"}
+            className="text-muted-foreground hover:text-primary transition-colors font-display flex-shrink-0"
+          >
+            ← Back to Project
+          </Link>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-3xl font-display font-bold text-foreground truncate">{assessment.name}</h1>
+            {assessment.description && (
+              <p className="text-sm text-muted-foreground">{assessment.description}</p>
+            )}
+          </div>
         </div>
-        <span
-          className={`rounded-full px-4 py-1.5 text-sm font-medium capitalize border ${getStatusColor(
-            assessment.status
-          )} font-display`}
-        >
-          {assessment.status}
-        </span>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <span
+            className={`rounded-full px-4 py-1.5 text-sm font-medium capitalize border ${getStatusColor(
+              assessment.status
+            )} font-display`}
+          >
+            {assessment.status}
+          </span>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors border border-red-200 hover:border-red-300"
+            title="Delete assessment"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete
+          </button>
+        </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-2xl border border-border p-6 max-w-md w-full shadow-xl">
+            <h3 className="text-xl font-display font-bold text-foreground mb-3">
+              Delete Assessment?
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Are you sure you want to delete <strong className="text-foreground">{assessment.name}</strong>? 
+              This will permanently delete the assessment and all its findings and results. 
+              This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 text-sm font-medium text-foreground bg-secondary hover:bg-secondary/80 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete Assessment
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="rounded-xl border border-border bg-card p-4">

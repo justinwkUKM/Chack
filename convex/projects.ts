@@ -97,3 +97,48 @@ export const archive = mutation({
   },
 });
 
+// Hard delete a project and all its assessments
+export const deleteProject = mutation({
+  args: { projectId: v.string() },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.projectId as any);
+    if (!existing) {
+      throw new Error("Project not found");
+    }
+
+    // Delete all assessments for this project
+    const assessments = await ctx.db
+      .query("assessments")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    for (const assessment of assessments) {
+      // Delete all findings for each assessment
+      const findings = await ctx.db
+        .query("findings")
+        .withIndex("by_assessment", (q) => q.eq("assessmentId", assessment._id))
+        .collect();
+      
+      for (const finding of findings) {
+        await ctx.db.delete(finding._id);
+      }
+
+      // Delete all results for each assessment
+      const results = await ctx.db
+        .query("results")
+        .withIndex("by_assessment", (q) => q.eq("assessmentId", assessment._id))
+        .collect();
+      
+      for (const result of results) {
+        await ctx.db.delete(result._id);
+      }
+
+      // Delete the assessment
+      await ctx.db.delete(assessment._id);
+    }
+
+    // Delete the project
+    await ctx.db.delete(args.projectId as any);
+  },
+});
+

@@ -481,3 +481,37 @@ export const update = mutation({
   },
 });
 
+// Delete an assessment and all its related data
+export const deleteAssessment = mutation({
+  args: { assessmentId: v.string() },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.assessmentId as any);
+    if (!existing) {
+      throw new Error("Assessment not found");
+    }
+
+    // Delete all findings for this assessment
+    const findings = await ctx.db
+      .query("findings")
+      .withIndex("by_assessment", (q) => q.eq("assessmentId", args.assessmentId))
+      .collect();
+    
+    for (const finding of findings) {
+      await ctx.db.delete(finding._id);
+    }
+
+    // Delete all results for this assessment
+    const results = await ctx.db
+      .query("results")
+      .withIndex("by_assessment", (q) => q.eq("assessmentId", args.assessmentId))
+      .collect();
+    
+    for (const result of results) {
+      await ctx.db.delete(result._id);
+    }
+
+    // Delete the assessment
+    await ctx.db.delete(args.assessmentId as any);
+  },
+});
+
