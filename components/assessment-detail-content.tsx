@@ -26,7 +26,11 @@ export default function AssessmentDetailContent({
 }: AssessmentDetailContentProps) {
   const router = useRouter();
   const { success: showSuccess, error: showError, ToastComponent } = useToast();
-  const assessment = useQuery(api.assessments.get, { assessmentId });
+  const assessmentData = useQuery(api.assessments.get, { assessmentId });
+  
+  // Type guard: ensure we have an assessment (not a user or other type)
+  const assessment = assessmentData && 'status' in assessmentData ? assessmentData : null;
+  
   const updateAssessmentStatus = useMutation(api.assessments.updateStatus);
   const parseReport = useMutation(api.assessments.parseReport);
   const deleteAssessment = useMutation(api.assessments.deleteAssessment);
@@ -46,7 +50,7 @@ export default function AssessmentDetailContent({
   // Only send targetUrl, gitRepoUrl, and type (NO userId)
   const requestBody = useMemo(
     () =>
-      assessment && ('targetUrl' in assessment) && (assessment.targetUrl || assessment.gitRepoUrl)
+      assessment && (assessment.targetUrl || assessment.gitRepoUrl)
         ? {
             targetUrl: assessment.targetUrl || "",
             gitRepoUrl: assessment.gitRepoUrl || "",
@@ -148,7 +152,7 @@ export default function AssessmentDetailContent({
     onStreamEnd: async () => {
       console.log("[AssessmentDetail] Stream ended - attempting to fetch report...");
       // When stream ends (cancelled or completed), try to fetch report
-      if (assessment && 'type' in assessment && assessment.type) {
+      if (assessment && assessment.type) {
         // Wait a bit for backend to finalize report
         setTimeout(async () => {
           setIsFetchingReport(true);
@@ -173,7 +177,7 @@ export default function AssessmentDetailContent({
         }
       }
 
-      if (report && assessment && 'type' in assessment) {
+      if (report && assessment) {
         try {
           // Parse the report and create findings/results
           await parseReport({
@@ -195,7 +199,7 @@ export default function AssessmentDetailContent({
             completedAt: Date.now(),
           });
         }
-      } else if (!report && assessment && 'type' in assessment && assessment.type) {
+      } else if (!report && assessment && assessment.type) {
         // If no report extracted from stream, try fetching from session
         console.log("[AssessmentDetail] No report in stream, attempting to fetch from session...");
         setIsFetchingReport(true);
@@ -240,7 +244,7 @@ export default function AssessmentDetailContent({
   useEffect(() => {
     if (assessment?.status === "running" && !scanTriggered.current) {
       // Check if we have required data
-      const hasTarget = ('type' in assessment && assessment.type === "blackbox")
+      const hasTarget = assessment.type === "blackbox"
         ? !!assessment.targetUrl 
         : !!assessment.gitRepoUrl;
       
@@ -529,7 +533,7 @@ export default function AssessmentDetailContent({
               </p>
               <button
                 onClick={async () => {
-                  if (assessment && 'type' in assessment && assessment.type) {
+                  if (assessment && assessment.type) {
                     setIsFetchingReport(true);
                     try {
                       await fetchReport(assessmentId, assessment.type as "blackbox" | "whitebox");
