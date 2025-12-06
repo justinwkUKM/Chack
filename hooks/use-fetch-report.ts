@@ -47,10 +47,24 @@ export function useFetchReport(options: UseFetchReportOptions = {}) {
           },
         });
 
-        const data: ReportData = await response.json();
+        // Try to parse JSON response
+        let data: ReportData;
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          console.error("[useFetchReport] Failed to parse JSON response:", parseError);
+          throw new Error(`Server returned invalid JSON (status: ${response.status})`);
+        }
 
+        // Handle non-ok responses
         if (!response.ok) {
-          throw new Error(data.error || `HTTP error! status: ${response.status}`);
+          const errorMessage = data.error || `Request failed with status ${response.status}`;
+          console.error("[useFetchReport] Request failed:", {
+            status: response.status,
+            error: errorMessage,
+            details: data.details,
+          });
+          throw new Error(errorMessage);
         }
 
         console.log(`[useFetchReport] Report fetched successfully:`, {
@@ -69,7 +83,16 @@ export function useFetchReport(options: UseFetchReportOptions = {}) {
         return data;
       } catch (err) {
         console.error("[useFetchReport] Error fetching report:", err);
-        const error = err instanceof Error ? err : new Error("Failed to fetch report");
+        
+        // Create a user-friendly error message
+        let errorMessage = "Failed to fetch report";
+        if (err instanceof Error) {
+          errorMessage = err.message;
+        } else if (typeof err === "string") {
+          errorMessage = err;
+        }
+        
+        const error = new Error(errorMessage);
         setError(error);
 
         if (options.onError) {

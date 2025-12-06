@@ -111,9 +111,14 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
         console.log("[useSSE] Response status:", response.status, response.statusText);
 
         if (!response.ok) {
-          const errorText = await response.text();
+          let errorText = "";
+          try {
+            errorText = await response.text();
+          } catch (e) {
+            errorText = "Could not read error response";
+          }
           console.error("[useSSE] HTTP error:", errorText);
-          throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+          throw new Error(`HTTP error! status: ${response.status}${errorText ? ` - ${errorText}` : ""}`);
         }
 
         if (!response.body) {
@@ -122,7 +127,12 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
 
         // Call onStart callback with response (to extract headers like sessionId)
         if (currentOptions.onStart) {
-          currentOptions.onStart(response);
+          try {
+            currentOptions.onStart(response);
+          } catch (e) {
+            console.error("[useSSE] Error in onStart callback:", e);
+            // Don't throw - continue with stream
+          }
         }
 
         console.log("[useSSE] Starting to read stream...");

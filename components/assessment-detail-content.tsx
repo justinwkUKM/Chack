@@ -63,7 +63,7 @@ export default function AssessmentDetailContent({
   }
 
   // Hook for fetching report from session
-  const { fetchReport, isLoading: isLoadingReport, reportData } = useFetchReport({
+  const { fetchReport, isLoading: isLoadingReport, reportData, error: fetchError } = useFetchReport({
     onSuccess: async (data) => {
       if (data.success && data.report && assessment) {
         console.log("[AssessmentDetail] Report fetched successfully, parsing...");
@@ -81,11 +81,13 @@ export default function AssessmentDetailContent({
           console.log("[AssessmentDetail] Report parsed and assessment marked as completed");
         } catch (err) {
           console.error("[AssessmentDetail] Failed to parse fetched report:", err);
+          // Don't throw - show error in UI
         }
       }
     },
     onError: (err) => {
       console.error("[AssessmentDetail] Failed to fetch report:", err);
+      // Error is stored in fetchError state and will be displayed
     },
   });
 
@@ -329,11 +331,16 @@ export default function AssessmentDetailContent({
     setIsDeleting(true);
     try {
       await deleteAssessment({ assessmentId });
-      router.push(assessment.projectId ? `/projects/${assessment.projectId}` : "/dashboard");
+      // Small delay before redirect to ensure UI updates
+      setTimeout(() => {
+        router.push(assessment.projectId ? `/projects/${assessment.projectId}` : "/dashboard");
+      }, 100);
     } catch (error: any) {
-      alert(error.message || "Failed to delete assessment");
       console.error("Delete error:", error);
+      const errorMessage = error?.message || "Failed to delete assessment. Please try again.";
+      alert(errorMessage);
       setIsDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -474,9 +481,9 @@ export default function AssessmentDetailContent({
           {error && (
             <div className="rounded-xl border border-red-300 bg-red-50 p-4">
               <p className="text-sm text-red-800 font-display font-semibold mb-1">
-                Error occurred:
+                Scan Error
               </p>
-              <p className="text-sm text-red-700 font-display">
+              <p className="text-sm text-red-700 font-display mb-2">
                 {error.message}
               </p>
               <button
@@ -484,9 +491,35 @@ export default function AssessmentDetailContent({
                   scanTriggered.current = false;
                   start();
                 }}
-                className="mt-2 text-xs text-red-800 underline hover:text-red-900"
+                className="mt-2 px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
               >
-                Retry scan
+                Retry Scan
+              </button>
+            </div>
+          )}
+          {fetchError && (
+            <div className="rounded-xl border border-orange-300 bg-orange-50 p-4">
+              <p className="text-sm text-orange-800 font-display font-semibold mb-1">
+                Report Fetch Error
+              </p>
+              <p className="text-sm text-orange-700 font-display mb-2">
+                {fetchError.message}
+              </p>
+              <button
+                onClick={async () => {
+                  if (assessment) {
+                    setIsFetchingReport(true);
+                    try {
+                      await fetchReport(assessmentId, assessment.type as "blackbox" | "whitebox");
+                    } finally {
+                      setIsFetchingReport(false);
+                    }
+                  }
+                }}
+                disabled={isLoadingReport || isFetchingReport}
+                className="mt-2 px-3 py-1.5 text-xs text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isLoadingReport || isFetchingReport ? "Retrying..." : "Retry Fetch"}
               </button>
             </div>
           )}

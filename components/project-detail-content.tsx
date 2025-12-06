@@ -31,11 +31,16 @@ export default function ProjectDetailContent({
     setIsDeleting(true);
     try {
       await deleteProject({ projectId });
-      router.push("/dashboard");
+      // Small delay before redirect to ensure UI updates
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 100);
     } catch (error: any) {
-      alert(error.message || "Failed to delete project");
       console.error("Delete error:", error);
+      const errorMessage = error?.message || "Failed to delete project. Please try again.";
+      alert(errorMessage);
       setIsDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
