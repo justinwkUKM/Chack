@@ -14,11 +14,11 @@ function ProjectsList({ orgId }: { orgId: string }) {
   const projects = useQuery(api.organizations.getProjects, { orgId });
 
   if (projects === undefined) {
-    return <div className="text-xs text-gray-600">Loading...</div>;
+    return <div className="text-xs text-muted-foreground">Loading...</div>;
   }
 
   if (projects.length === 0) {
-    return <div className="text-xs text-gray-600">No projects yet</div>;
+    return <div className="text-xs text-muted-foreground">No projects yet</div>;
   }
 
   return (
@@ -27,7 +27,7 @@ function ProjectsList({ orgId }: { orgId: string }) {
         <Link
           key={project._id}
           href={`/projects/${project._id}`}
-          className="block rounded-lg px-3 py-2 text-xs text-black"
+          className="block rounded-lg px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
           title={project.name}
           style={{ animationDelay: `${index * 50}ms` }}
         >
@@ -35,7 +35,7 @@ function ProjectsList({ orgId }: { orgId: string }) {
         </Link>
       ))}
       {projects.length > 5 && (
-        <div className="text-xs text-gray-600">
+        <div className="text-xs text-muted-foreground">
           +{projects.length - 5} more
         </div>
       )}
@@ -48,11 +48,11 @@ function AssessmentsList({ orgId }: { orgId: string }) {
   const assessments = useQuery(api.organizations.getAssessments, { orgId });
 
   if (assessments === undefined) {
-    return <div className="text-xs text-gray-600">Loading...</div>;
+    return <div className="text-xs text-muted-foreground">Loading...</div>;
   }
 
   if (assessments.length === 0) {
-    return <div className="text-xs text-gray-600">No assessments yet</div>;
+    return <div className="text-xs text-muted-foreground">No assessments yet</div>;
   }
 
   const getStatusColor = (status: string) => {
@@ -64,7 +64,7 @@ function AssessmentsList({ orgId }: { orgId: string }) {
       case "failed":
         return "text-red-600";
       default:
-        return "text-gray-600";
+        return "text-muted-foreground";
     }
   };
 
@@ -74,12 +74,12 @@ function AssessmentsList({ orgId }: { orgId: string }) {
         <Link
           key={assessment._id}
           href={`/assessments/${assessment._id}`}
-          className="block rounded-lg px-3 py-2 text-xs hover:bg-gray-100 group border border-transparent hover:border-gray-200 hover:scale-[1.02] transition-all duration-300"
+          className="block rounded-lg px-3 py-2 text-xs hover:bg-secondary group border border-transparent hover:border-border hover:scale-[1.02] transition-all duration-300"
           title={assessment.name}
           style={{ animationDelay: `${index * 50}ms` }}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-black group-hover:text-sky-600 truncate flex-1 font-display transition-colors">
+            <span className="text-foreground group-hover:text-primary truncate flex-1 font-display transition-colors">
               {assessment.name}
             </span>
             <span className={`text-xs ${getStatusColor(assessment.status)} animate-pulse-slow`}>
@@ -89,7 +89,7 @@ function AssessmentsList({ orgId }: { orgId: string }) {
         </Link>
       ))}
       {assessments.length > 5 && (
-        <div className="text-xs text-gray-600 px-3 py-1 font-display">
+        <div className="text-xs text-muted-foreground px-3 py-1 font-display">
           +{assessments.length - 5} more
         </div>
       )}
@@ -117,14 +117,14 @@ export default function DashboardSidebar({
   const user = useQuery(api.users.getById, { userId });
 
   return (
-    <aside className="w-64 border-r border-gray-200">
+    <aside className="w-64 border-r border-border bg-card text-foreground">
       <div className="p-4 space-y-6">
         {/* User Profile Section */}
         {session && user && (
-          <div className="pb-4 border-b border-gray-200">
+          <div className="pb-4 border-b border-border">
             <Link
               href="/settings"
-              className="flex items-center gap-3 rounded-xl p-3 hover:bg-gray-100"
+              className="flex items-center gap-3 rounded-xl p-3 hover:bg-secondary transition-colors"
             >
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-500/20 to-cyan-500/20 flex items-center justify-center overflow-hidden ring-2 ring-sky-500/20 group-hover:ring-sky-400/40 transition-all duration-300">
                 {user.image ? (
@@ -140,14 +140,14 @@ export default function DashboardSidebar({
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-black">
+                <div className="text-sm font-medium text-foreground">
                   {user.name || user.email}
                 </div>
-                <div className="text-xs text-gray-600">
+                <div className="text-xs text-muted-foreground">
                   {user.email}
                 </div>
               </div>
-              <Settings className="w-4 h-4 text-gray-700" />
+              <Settings className="w-4 h-4 text-muted-foreground" />
             </Link>
           </div>
         )}
@@ -155,32 +155,32 @@ export default function DashboardSidebar({
         {/* Current Organization */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xs font-semibold text-gray-700">
+            <h2 className="text-xs font-semibold text-muted-foreground">
               Organization
             </h2>
             {allOrgs && allOrgs.length > 1 && (
               <button
                 onClick={() => setShowOrgSwitcher(!showOrgSwitcher)}
-                className="text-xs text-sky-600"
+                className="text-xs text-primary"
               >
                 Switch
               </button>
             )}
           </div>
           {currentOrg && "name" in currentOrg && (
-            <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-2">
-              <div className="font-semibold text-black font-display text-base">
+            <div className="rounded-xl border border-border bg-card p-4 space-y-2">
+              <div className="font-semibold text-foreground font-display text-base">
                 {currentOrg.name}
               </div>
               {"plan" in currentOrg && (
-                <div className="text-xs text-gray-700 mt-2">
-                  <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 capitalize">
+                <div className="text-xs text-muted-foreground mt-2">
+                  <span className="px-2 py-0.5 rounded-full bg-secondary text-foreground capitalize">
                     {currentOrg.plan}
                   </span>
                 </div>
               )}
               {"credits" in currentOrg && (
-                <div className="text-xs text-gray-700 mt-2 flex items-center gap-2">
+                <div className="text-xs text-muted-foreground mt-2 flex items-center gap-2">
                   <span>Credits:</span>
                   <span
                     className={`font-semibold px-2 py-0.5 rounded-full transition-all duration-300 ${
@@ -208,13 +208,13 @@ export default function DashboardSidebar({
                   href="/dashboard"
                   className={`block rounded-xl px-4 py-2.5 text-sm transition-all duration-300 font-display border ${
                     org._id === currentOrgId
-                      ? "bg-gradient-to-r from-sky-500/20 to-cyan-500/20 text-sky-800 border-sky-300"
-                      : "text-gray-800 border-gray-200 bg-white hover:bg-gray-50"
+                    ? "bg-gradient-to-r from-sky-500/20 to-cyan-500/20 text-sky-800 border-sky-300"
+                    : "text-foreground border-border bg-card hover:bg-secondary"
                   }`}
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
                   {"name" in org ? org.name : ""}
-                  <span className="ml-2 text-xs text-gray-600">
+                <span className="ml-2 text-xs text-muted-foreground">
                     {"role" in org ? `(${org.role})` : ""}
                   </span>
                 </Link>
@@ -226,18 +226,18 @@ export default function DashboardSidebar({
         {/* Quick Stats */}
         {stats && (
           <div className="space-y-3 animate-fade-in">
-            <h2 className="text-xs font-semibold text-gray-700">
+            <h2 className="text-xs font-semibold text-muted-foreground">
               Overview
             </h2>
             <div className="space-y-2">
-              <div className="flex items-center justify-between rounded-xl px-4 py-3 border border-gray-200 bg-white">
-                <span className="text-sm text-black font-display">Projects</span>
+              <div className="flex items-center justify-between rounded-xl px-4 py-3 border border-border bg-card">
+                <span className="text-sm text-foreground font-display">Projects</span>
                 <span className="text-lg font-display font-bold text-sky-600">
                   {stats.projectsCount}
                 </span>
               </div>
-              <div className="flex items-center justify-between rounded-xl px-4 py-3 border border-gray-200 bg-white">
-                <span className="text-sm text-black font-display">Assessments</span>
+              <div className="flex items-center justify-between rounded-xl px-4 py-3 border border-border bg-card">
+                <span className="text-sm text-foreground font-display">Assessments</span>
                 <span className="text-lg font-display font-bold text-cyan-600">
                   {stats.assessmentsCount}
                 </span>
@@ -249,12 +249,12 @@ export default function DashboardSidebar({
         {/* Members List */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xs font-semibold text-gray-700 uppercase font-display tracking-wider">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase font-display tracking-wider">
               Members
             </h2>
             <button
               onClick={() => setShowMembers(!showMembers)}
-              className="text-xs text-gray-600 hover:text-sky-600 transition-colors duration-300 font-display"
+              className="text-xs text-muted-foreground hover:text-primary transition-colors duration-300 font-display"
             >
               {showMembers ? "Hide" : "Show"}
             </button>
@@ -262,22 +262,22 @@ export default function DashboardSidebar({
           {showMembers && members && (
             <div className="space-y-2 animate-fade-in">
               {members.length === 0 ? (
-                <p className="text-xs text-gray-600 font-display">No members yet</p>
+                <p className="text-xs text-muted-foreground font-display">No members yet</p>
               ) : (
                 members.map((member, index) => (
                   <div
                     key={member.membershipId}
-                    className="flex items-center gap-3 rounded-xl px-3 py-2 border border-gray-200 bg-white hover:bg-gray-50 hover:scale-[1.02] transition-all duration-300"
+                    className="flex items-center gap-3 rounded-xl px-3 py-2 border border-border bg-card hover:bg-secondary hover:scale-[1.02] transition-all duration-300"
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-500/20 to-cyan-500/20 flex items-center justify-center text-xs font-semibold text-sky-600 ring-2 ring-sky-500/20">
                       {member.name?.[0]?.toUpperCase() || member.email[0]?.toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-black truncate font-display">
+                      <div className="text-sm text-foreground truncate font-display">
                         {member.name || member.email}
                       </div>
-                      <div className="text-xs text-gray-600 capitalize">
+                      <div className="text-xs text-muted-foreground capitalize">
                         {member.role}
                       </div>
                     </div>
@@ -287,7 +287,7 @@ export default function DashboardSidebar({
             </div>
           )}
           {!showMembers && members && (
-            <div className="text-sm text-gray-700 font-display px-2 py-1 rounded-full bg-gray-100 inline-block">
+            <div className="text-sm text-muted-foreground font-display px-2 py-1 rounded-full bg-secondary inline-block">
               {members.length} {members.length === 1 ? "member" : "members"}
             </div>
           )}
@@ -295,7 +295,7 @@ export default function DashboardSidebar({
 
         {/* Projects (Targets) List */}
         <div className="animate-fade-in">
-          <h2 className="text-xs font-semibold text-gray-700">
+          <h2 className="text-xs font-semibold text-muted-foreground">
             Projects
           </h2>
           <ProjectsList orgId={currentOrgId} />
@@ -303,7 +303,7 @@ export default function DashboardSidebar({
 
         {/* Assessments List */}
         <div className="animate-fade-in">
-          <h2 className="text-xs font-semibold text-gray-700">
+          <h2 className="text-xs font-semibold text-muted-foreground">
             Assessments
           </h2>
           <AssessmentsList orgId={currentOrgId} />

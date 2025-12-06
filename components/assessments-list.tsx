@@ -20,8 +20,8 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
   const [assessmentName, setAssessmentName] = useState("");
   const [assessmentDescription, setAssessmentDescription] = useState("");
   const [assessmentType, setAssessmentType] = useState("blackbox");
-  const [targetType, setTargetType] = useState("web_app");
   const [targetUrl, setTargetUrl] = useState("");
+  const [githubRepo, setGithubRepo] = useState("");
 
   const assessments = useQuery(api.assessments.list, { projectId }) ?? [];
   const createAssessment = useMutation(api.assessments.create);
@@ -43,14 +43,15 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
         name: assessmentName,
         description: assessmentDescription || undefined,
         type: assessmentType,
-        targetType,
-        targetUrl: targetUrl || undefined,
+        targetType: assessmentType === "blackbox" ? "web_app" : "github",
+        targetUrl: assessmentType === "blackbox" ? targetUrl : githubRepo,
         createdByUserId: session.user.id,
       });
 
       setAssessmentName("");
       setAssessmentDescription("");
       setTargetUrl("");
+      setGithubRepo("");
       setShowCreateForm(false);
 
       // Redirect to assessment detail page to show loading state
@@ -78,14 +79,14 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
   return (
     <section className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-display font-semibold bg-gradient-to-r from-gray-900 to-black">Assessments</h2>
+        <h2 className="text-2xl font-display font-semibold text-foreground">Assessments</h2>
         <div className="flex items-center gap-3">
           {org && "credits" in org && (
-            <div className="text-xs text-gray-700">
+            <div className="text-xs text-muted-foreground">
               Credits:{" "}
               <span
                 className={`font-semibold ${
-                  (org.credits ?? 0) < 3 ? "text-yellow-700" : "text-black"
+                  (org.credits ?? 0) < 3 ? "text-yellow-700" : "text-foreground"
                 }`}
               >
                 {org.credits ?? 0}
@@ -130,10 +131,10 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
       {showCreateForm && (
         <form
           onSubmit={onSubmit}
-          className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4"
+          className="rounded-2xl border border-border bg-card p-6 space-y-4"
         >
           <div>
-            <label className="block text-sm font-medium text-black mb-2 font-display">
+            <label className="block text-sm font-medium text-foreground mb-2 font-display">
               Assessment Name *
             </label>
             <input
@@ -142,12 +143,12 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
               value={assessmentName}
               onChange={(e) => setAssessmentName(e.target.value)}
               required
-              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all duration-300"
+              className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all duration-300"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-black mb-2 font-display">
+            <label className="block text-sm font-medium text-foreground mb-2 font-display">
               Description (optional)
             </label>
             <textarea
@@ -155,54 +156,54 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
               value={assessmentDescription}
               onChange={(e) => setAssessmentDescription(e.target.value)}
               rows={2}
-              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all duration-300 resize-none"
+              className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all duration-300 resize-none"
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-black mb-2 font-display">
-                Assessment Type *
-              </label>
-              <select
-                value={assessmentType}
-                onChange={(e) => setAssessmentType(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-black focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all duration-300"
-              >
-                <option value="blackbox">Blackbox</option>
-                <option value="whitebox">Whitebox</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-black mb-2 font-display">
-                Target Type *
-              </label>
-              <select
-                value={targetType}
-                onChange={(e) => setTargetType(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-black focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all duration-300"
-              >
-                <option value="web_app">Web Application</option>
-                <option value="api">API</option>
-                <option value="mobile">Mobile App</option>
-                <option value="network">Network</option>
-              </select>
-            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-black mb-2 font-display">
-              Target URL (optional)
+            <label className="block text-sm font-medium text-foreground mb-2 font-display">
+              Assessment Type *
             </label>
-            <input
-              type="url"
-              placeholder="https://app.example.com"
-              value={targetUrl}
-              onChange={(e) => setTargetUrl(e.target.value)}
-              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all duration-300"
-            />
+            <select
+              value={assessmentType}
+              onChange={(e) => setAssessmentType(e.target.value)}
+              className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all duration-300"
+            >
+              <option value="blackbox">Blackbox (URL-based)</option>
+              <option value="whitebox">Whitebox (GitHub Repository)</option>
+            </select>
           </div>
+
+          {assessmentType === "blackbox" ? (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2 font-display">
+                Target URL *
+              </label>
+              <input
+                type="url"
+                placeholder="https://app.example.com"
+                value={targetUrl}
+                onChange={(e) => setTargetUrl(e.target.value)}
+                required
+                className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all duration-300"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2 font-display">
+                GitHub Repository URL *
+              </label>
+              <input
+                type="url"
+                placeholder="https://github.com/username/repo"
+                value={githubRepo}
+                onChange={(e) => setGithubRepo(e.target.value)}
+                required
+                className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all duration-300"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Must be a public repository</p>
+            </div>
+          )}
 
           <button
             type="submit"
@@ -216,8 +217,8 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
 
       <div className="space-y-3">
         {assessments.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
-            <p className="text-sm text-gray-700 font-display">
+          <div className="rounded-2xl border border-border bg-card p-8 text-center">
+            <p className="text-sm text-muted-foreground font-display">
               No assessments yet. Create your first assessment to start scanning.
             </p>
           </div>
@@ -226,22 +227,22 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
             <Link
               key={assessment._id}
               href={`/assessments/${assessment._id}`}
-              className="block rounded-xl border border-gray-200 bg-white p-5 hover:border-sky-300 hover:shadow-md transition-all duration-300"
+              className="block rounded-xl border border-border bg-card p-5 hover:border-primary/40 hover:shadow-md transition-all duration-300"
               style={{ animationDelay: `${index * 50}ms` }}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="font-display font-semibold text-lg text-black">{assessment.name}</h3>
+                  <h3 className="font-display font-semibold text-lg text-foreground">{assessment.name}</h3>
                   {assessment.description && (
-                    <p className="mt-2 text-sm text-gray-700">
+                    <p className="mt-2 text-sm text-muted-foreground">
                       {assessment.description}
                     </p>
                   )}
-                  <div className="mt-3 flex items-center gap-3 text-xs text-gray-600">
-                    <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 capitalize">{assessment.type}</span>
-                    <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 capitalize">{assessment.targetType}</span>
+                  <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="px-2 py-0.5 rounded-full bg-secondary text-foreground capitalize">{assessment.type}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-secondary text-foreground capitalize">{assessment.targetType}</span>
                     {assessment.targetUrl && (
-                      <span className="truncate max-w-xs text-gray-500">{assessment.targetUrl}</span>
+                      <span className="truncate max-w-xs text-muted-foreground">{assessment.targetUrl}</span>
                     )}
                   </div>
                 </div>

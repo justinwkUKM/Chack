@@ -7,6 +7,7 @@ import { ConvexClientProvider } from "@/components/convex-client-provider";
 import { Navbar } from "@/components/navbar";
 import { UserSync } from "@/components/user-sync";
 import { OnboardingCheck } from "@/components/onboarding-check";
+import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
   title: "CHACK",
@@ -19,14 +20,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-white text-black">
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen bg-background text-foreground antialiased">
         <AuthProvider>
           <ConvexClientProvider>
-            <UserSync />
-            <OnboardingCheck />
-            <Navbar />
-            {children}
+            <ThemeProvider>
+              <UserSync />
+              <OnboardingCheck />
+              <Navbar />
+              {children}
+            </ThemeProvider>
           </ConvexClientProvider>
         </AuthProvider>
       </body>

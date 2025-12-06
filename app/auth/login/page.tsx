@@ -11,18 +11,18 @@ export default function LoginPage() {
   const callbackUrl = searchParams.get("callbackUrl") || "/";
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-8 px-4 animate-fade-in bg-white">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-8 px-4 animate-fade-in bg-background text-foreground">
       <div className="text-center space-y-2">
         <h1 className="text-4xl font-display font-bold bg-gradient-to-r from-sky-400 via-cyan-400 to-sky-400 bg-clip-text text-transparent">
           Sign in to CHACK
         </h1>
-        <p className="text-gray-700">Choose your authentication method</p>
+        <p className="text-muted-foreground">Choose your authentication method</p>
       </div>
 
       <div className="flex flex-col gap-4 w-full max-w-sm">
         <button
           onClick={() => signIn("google", { callbackUrl })}
-          className="rounded-xl glass-effect border border-gray-300 bg-white px-6 py-4 text-sm font-semibold text-black hover:bg-gray-50 hover:scale-105 hover:shadow-lg hover:shadow-sky-500/10 transition-all duration-300 font-display flex items-center justify-center gap-3"
+          className="rounded-xl glass-effect border border-border bg-card px-6 py-4 text-sm font-semibold text-card-foreground hover:bg-secondary hover:scale-105 hover:shadow-lg hover:shadow-sky-500/10 transition-all duration-300 font-display flex items-center justify-center gap-3"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -47,7 +47,7 @@ export default function LoginPage() {
 
         <button
           onClick={() => signIn("github", { callbackUrl })}
-          className="rounded-xl glass-effect border border-gray-300 bg-white px-6 py-4 text-sm font-semibold text-black hover:bg-gray-50 hover:scale-105 hover:shadow-lg hover:shadow-sky-500/10 transition-all duration-300 font-display flex items-center justify-center gap-3"
+          className="rounded-xl glass-effect border border-border bg-card px-6 py-4 text-sm font-semibold text-card-foreground hover:bg-secondary hover:scale-105 hover:shadow-lg hover:shadow-sky-500/10 transition-all duration-300 font-display flex items-center justify-center gap-3"
         >
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
             <path

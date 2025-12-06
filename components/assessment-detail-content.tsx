@@ -49,20 +49,20 @@ export default function AssessmentDetailContent({
 
   if (assessment === undefined) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
-        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-sky-500"></div>
-        <p className="text-sm text-gray-700 mt-4 font-display">Loading...</p>
+      <div className="rounded-2xl border border-border bg-card p-8 text-center">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-border border-t-primary"></div>
+        <p className="text-sm text-muted-foreground mt-4 font-display">Loading...</p>
       </div>
     );
   }
 
   if (!assessment) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
-        <p className="text-sm text-gray-700 font-display">Assessment not found</p>
+      <div className="rounded-2xl border border-border bg-card p-8 text-center">
+        <p className="text-sm text-muted-foreground font-display">Assessment not found</p>
         <Link
           href="/dashboard"
-          className="mt-4 inline-block text-sm text-sky-600 hover:text-sky-500 transition-colors font-display"
+          className="mt-4 inline-block text-sm text-primary hover:text-primary/80 transition-colors font-display"
         >
           ← Back to Dashboard
         </Link>
@@ -88,14 +88,14 @@ export default function AssessmentDetailContent({
       <div className="flex items-center gap-4">
         <Link
           href="/dashboard"
-          className="text-gray-700 hover:text-sky-600 transition-colors font-display"
+          className="text-muted-foreground hover:text-primary transition-colors font-display"
         >
           ← Back to Dashboard
         </Link>
         <div className="flex-1">
-          <h1 className="text-3xl font-display font-bold text-black">{assessment.name}</h1>
+          <h1 className="text-3xl font-display font-bold text-foreground">{assessment.name}</h1>
           {assessment.description && (
-            <p className="text-sm text-gray-700">{assessment.description}</p>
+            <p className="text-sm text-muted-foreground">{assessment.description}</p>
           )}
         </div>
         <span
@@ -108,22 +108,22 @@ export default function AssessmentDetailContent({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <div className="text-xs text-gray-600 uppercase font-display mb-2">Type</div>
-          <div className="text-sm font-medium capitalize font-display text-black">
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="text-xs text-muted-foreground uppercase font-display mb-2">Type</div>
+          <div className="text-sm font-medium capitalize font-display text-foreground">
             {assessment.type}
           </div>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <div className="text-xs text-gray-600 uppercase font-display mb-2">Target Type</div>
-          <div className="text-sm font-medium capitalize font-display text-black">
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="text-xs text-muted-foreground uppercase font-display mb-2">Target Type</div>
+          <div className="text-sm font-medium capitalize font-display text-foreground">
             {assessment.targetType}
           </div>
         </div>
         {assessment.targetUrl && (
-          <div className="rounded-xl border border-gray-200 bg-white p-4">
-            <div className="text-xs text-gray-600 uppercase font-display mb-2">Target URL</div>
-            <div className="text-sm font-medium truncate font-display text-black">
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="text-xs text-muted-foreground uppercase font-display mb-2">Target URL</div>
+            <div className="text-sm font-medium truncate font-display text-foreground">
               {assessment.targetUrl}
             </div>
           </div>
@@ -131,17 +131,17 @@ export default function AssessmentDetailContent({
       </div>
 
       {assessment.status === "running" ? (
-        <div className="rounded-2xl border border-sky-500/30 bg-white p-12 text-center animate-fade-in">
+        <div className="rounded-2xl border border-sky-500/30 bg-card p-12 text-center animate-fade-in">
           <div className="flex flex-col items-center gap-6">
             <div className="relative">
-              <div className="w-20 h-20 border-4 border-gray-300 border-t-sky-500 rounded-full animate-spin"></div>
+              <div className="w-20 h-20 border-4 border-border border-t-primary rounded-full animate-spin"></div>
               <div className="absolute inset-0 border-4 border-transparent border-r-cyan-500 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
             </div>
             <div>
-              <h3 className="text-xl font-display font-semibold text-black">
+              <h3 className="text-xl font-display font-semibold text-foreground">
                 Scan in Progress
               </h3>
-              <p className="text-sm text-gray-700 mt-2 font-display">
+              <p className="text-sm text-muted-foreground mt-2 font-display">
                 Running security assessment... This may take a few seconds.
               </p>
             </div>

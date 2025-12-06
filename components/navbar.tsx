@@ -6,10 +6,13 @@ import { useSession, signOut } from "next-auth/react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Link from "next/link";
-import { Settings } from "lucide-react";
+import { Moon, Settings, Sun } from "lucide-react";
+import { useTheme } from "./theme-provider";
 
 export function Navbar() {
   const { data: session, status } = useSession();
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === "dark";
   
   // Get user data from Convex database for real-time updates
   const user = useQuery(
@@ -28,7 +31,7 @@ export function Navbar() {
   const displayProvider = user ? user.provider : session?.user?.provider;
 
   return (
-    <nav className="glass-effect border-b border-gray-200 sticky top-0 z-50 animate-fade-in bg-white backdrop-blur-xl">
+    <nav className="glass-effect border-b border-border sticky top-0 z-50 animate-fade-in">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center">
@@ -41,28 +44,41 @@ export function Navbar() {
           </div>
 
           <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-pressed={isDark}
+              className="flex items-center gap-2 rounded-lg border border-border bg-secondary/80 px-3 py-2 text-sm font-semibold text-foreground shadow-sm transition-all duration-300 hover:scale-105 hover:bg-secondary"
+            >
+              {isDark ? (
+                <Moon className="h-4 w-4 text-foreground" />
+              ) : (
+                <Sun className="h-4 w-4 text-foreground" />
+              )}
+              <span className="hidden sm:inline">{isDark ? "Dark" : "Light"} mode</span>
+            </button>
             {status === "loading" ? (
-              <div className="text-sm text-gray-700">Loading...</div>
+              <div className="text-sm text-muted-foreground">Loading...</div>
             ) : session ? (
               <>
                 <div className="flex items-center gap-3">
                   <Link
                     href="/settings"
-                    className="p-2 rounded-lg hover:bg-gray-100 transition-all duration-300 hover:scale-110 group"
+                    className="p-2 rounded-lg transition-all duration-300 hover:scale-110 hover:bg-secondary group"
                     title="Settings"
                   >
-                    <Settings className="w-5 h-5 text-gray-800 group-hover:text-sky-500 transition-colors duration-300" />
+                    <Settings className="w-5 h-5 text-foreground group-hover:text-sky-500 transition-colors duration-300" />
                   </Link>
                   <div className="text-right animate-fade-in">
-                    <div className="text-sm font-medium text-black font-display">
+                    <div className="text-sm font-medium text-foreground font-display">
                       {displayName}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>{displayEmail}</span>
                       {displayProvider && (
                         <>
-                          <span className="text-gray-400">•</span>
-                          <span className="capitalize text-gray-500">
+                          <span className="text-muted-foreground">•</span>
+                          <span className="capitalize text-muted-foreground">
                             {getProviderName(displayProvider)}
                           </span>
                         </>
@@ -71,7 +87,7 @@ export function Navbar() {
                   </div>
                   <button
                     onClick={() => signOut({ callbackUrl: "/" })}
-                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-black hover:bg-gray-200 hover:scale-105 transition-all duration-300 border border-gray-300"
+                    className="rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-semibold text-foreground transition-all duration-300 hover:scale-105 hover:bg-secondary/80"
                   >
                     Sign Out
                   </button>
