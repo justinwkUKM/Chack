@@ -25,30 +25,41 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
 
   const assessments = useQuery(api.assessments.list, { projectId }) ?? [];
   const createAssessment = useMutation(api.assessments.create);
+  const project = useQuery(api.projects.get, { projectId });
+  const org = useQuery(
+    api.organizations.get,
+    project && "orgId" in project && project.orgId ? { orgId: project.orgId } : "skip"
+  );
+  const hasCredits = org && "credits" in org ? (org.credits ?? 0) > 0 : false;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session?.user?.id || !assessmentName.trim()) return;
 
-    // Create assessment (status will be "running")
-    const assessmentId = await createAssessment({
-      projectId,
-      name: assessmentName,
-      description: assessmentDescription || undefined,
-      type: assessmentType,
-      targetType,
-      targetUrl: targetUrl || undefined,
-      createdByUserId: session.user.id,
-    });
+    try {
+      // Create assessment (status will be "running")
+      const assessmentId = await createAssessment({
+        projectId,
+        name: assessmentName,
+        description: assessmentDescription || undefined,
+        type: assessmentType,
+        targetType,
+        targetUrl: targetUrl || undefined,
+        createdByUserId: session.user.id,
+      });
 
-    setAssessmentName("");
-    setAssessmentDescription("");
-    setTargetUrl("");
-    setShowCreateForm(false);
+      setAssessmentName("");
+      setAssessmentDescription("");
+      setTargetUrl("");
+      setShowCreateForm(false);
 
-    // Redirect to assessment detail page to show loading state
-    // The scan will be automatically triggered on the detail page
-    router.push(`/assessments/${assessmentId}`);
+      // Redirect to assessment detail page to show loading state
+      // The scan will be automatically triggered on the detail page
+      router.push(`/assessments/${assessmentId}`);
+    } catch (error: any) {
+      alert(error.message || "Failed to create assessment. You may not have enough credits.");
+      console.error("Assessment creation error:", error);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -65,24 +76,64 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
   };
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Assessments</h2>
-        <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="rounded bg-sky-500 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-600"
-        >
-          {showCreateForm ? "Cancel" : "+ New Assessment"}
-        </button>
+        <h2 className="text-2xl font-display font-semibold bg-gradient-to-r from-gray-900 to-black">Assessments</h2>
+        <div className="flex items-center gap-3">
+          {org && "credits" in org && (
+            <div className="text-xs text-gray-700">
+              Credits:{" "}
+              <span
+                className={`font-semibold ${
+                  (org.credits ?? 0) < 3 ? "text-yellow-700" : "text-black"
+                }`}
+              >
+                {org.credits ?? 0}
+              </span>
+            </div>
+          )}
+          <button
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            disabled={!hasCredits}
+            className="rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 px-4 py-2.5 text-sm font-semibold text-white hover:from-sky-400 hover:to-cyan-400 disabled:cursor-not-allowed disabled:opacity-50 hover:scale-105 hover:shadow-lg hover:shadow-sky-500/30 transition-all duration-300 font-display"
+            title={!hasCredits ? "Insufficient credits. Please upgrade your plan." : ""}
+          >
+            {showCreateForm ? "Cancel" : "+ New Assessment"}
+          </button>
+        </div>
       </div>
+
+      {org && "credits" in org && (org.credits ?? 0) < 3 && (org.credits ?? 0) > 0 && (
+        <div className="rounded-xl border border-yellow-500/50 bg-yellow-50 p-4">
+          <p className="text-sm text-yellow-900 font-display">
+            ⚠️ Low credits! You have {org.credits ?? 0} credit(s) remaining.{" "}
+            <Link href="/settings" className="underline hover:text-yellow-800 transition-colors">
+              Upgrade your plan
+            </Link>{" "}
+            to get more credits.
+          </p>
+        </div>
+      )}
+
+      {org && "credits" in org && (org.credits ?? 0) === 0 && (
+        <div className="rounded-xl border border-red-500/50 bg-red-50 p-4">
+          <p className="text-sm text-red-900 font-display">
+            ❌ No credits remaining.{" "}
+            <Link href="/settings" className="underline hover:text-red-800 transition-colors">
+              Upgrade your plan
+            </Link>{" "}
+            to create assessments.
+          </p>
+        </div>
+      )}
 
       {showCreateForm && (
         <form
           onSubmit={onSubmit}
-          className="rounded-lg border border-slate-800 bg-slate-900 p-4 space-y-3"
+          className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4"
         >
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">
+            <label className="block text-sm font-medium text-black mb-2 font-display">
               Assessment Name *
             </label>
             <input
@@ -91,12 +142,12 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
               value={assessmentName}
               onChange={(e) => setAssessmentName(e.target.value)}
               required
-              className="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all duration-300"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">
+            <label className="block text-sm font-medium text-black mb-2 font-display">
               Description (optional)
             </label>
             <textarea
@@ -104,19 +155,19 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
               value={assessmentDescription}
               onChange={(e) => setAssessmentDescription(e.target.value)}
               rows={2}
-              className="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all duration-300 resize-none"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">
+              <label className="block text-sm font-medium text-black mb-2 font-display">
                 Assessment Type *
               </label>
               <select
                 value={assessmentType}
                 onChange={(e) => setAssessmentType(e.target.value)}
-                className="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-black focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all duration-300"
               >
                 <option value="blackbox">Blackbox</option>
                 <option value="whitebox">Whitebox</option>
@@ -124,13 +175,13 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">
+              <label className="block text-sm font-medium text-black mb-2 font-display">
                 Target Type *
               </label>
               <select
                 value={targetType}
                 onChange={(e) => setTargetType(e.target.value)}
-                className="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-black focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all duration-300"
               >
                 <option value="web_app">Web Application</option>
                 <option value="api">API</option>
@@ -141,7 +192,7 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">
+            <label className="block text-sm font-medium text-black mb-2 font-display">
               Target URL (optional)
             </label>
             <input
@@ -149,63 +200,60 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
               placeholder="https://app.example.com"
               value={targetUrl}
               onChange={(e) => setTargetUrl(e.target.value)}
-              className="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all duration-300"
             />
           </div>
 
           <button
             type="submit"
             disabled={!assessmentName.trim()}
-            className="rounded bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 px-6 py-3 text-sm font-semibold text-white hover:from-sky-400 hover:to-cyan-400 disabled:cursor-not-allowed disabled:opacity-50 hover:scale-105 hover:shadow-lg hover:shadow-sky-500/30 transition-all duration-300 font-display"
           >
             Create Assessment
           </button>
         </form>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {assessments.length === 0 ? (
-          <div className="rounded-lg border border-slate-800 bg-slate-900 p-6 text-center">
-            <p className="text-sm text-slate-400">
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+            <p className="text-sm text-gray-700 font-display">
               No assessments yet. Create your first assessment to start scanning.
             </p>
           </div>
         ) : (
-          assessments.map((assessment) => (
+          assessments.map((assessment, index) => (
             <Link
               key={assessment._id}
               href={`/assessments/${assessment._id}`}
-              className="block rounded-lg border border-slate-800 bg-slate-900 p-4 hover:border-slate-700 transition-colors"
+              className="block rounded-xl border border-gray-200 bg-white p-5 hover:border-sky-300 hover:shadow-md transition-all duration-300"
+              style={{ animationDelay: `${index * 50}ms` }}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-slate-100">{assessment.name}</h3>
+                  <h3 className="font-display font-semibold text-lg text-black">{assessment.name}</h3>
                   {assessment.description && (
-                    <p className="mt-1 text-sm text-slate-400">
+                    <p className="mt-2 text-sm text-gray-700">
                       {assessment.description}
                     </p>
                   )}
-                  <div className="mt-2 flex items-center gap-4 text-xs text-slate-500">
-                    <span className="capitalize">{assessment.type}</span>
-                    <span>•</span>
-                    <span className="capitalize">{assessment.targetType}</span>
+                  <div className="mt-3 flex items-center gap-3 text-xs text-gray-600">
+                    <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 capitalize">{assessment.type}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 capitalize">{assessment.targetType}</span>
                     {assessment.targetUrl && (
-                      <>
-                        <span>•</span>
-                        <span className="truncate max-w-xs">{assessment.targetUrl}</span>
-                      </>
+                      <span className="truncate max-w-xs text-gray-500">{assessment.targetUrl}</span>
                     )}
                   </div>
                 </div>
                 <div className="ml-4 flex items-center gap-3">
                   <span
-                    className={`rounded px-2 py-1 text-xs font-medium capitalize ${getStatusColor(
+                    className={`rounded-full px-3 py-1 text-xs font-medium capitalize border ${getStatusColor(
                       assessment.status
                     )}`}
                   >
                     {assessment.status}
                   </span>
-                  <span className="text-slate-400">→</span>
+                  <span className="text-sky-600 text-xl">→</span>
                 </div>
               </div>
             </Link>

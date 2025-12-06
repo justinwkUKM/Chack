@@ -20,19 +20,20 @@ export default function ProjectDetailContent({
 
   if (project === undefined) {
     return (
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-6 text-center">
-        <p className="text-sm text-slate-400">Loading...</p>
+      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-sky-500"></div>
+        <p className="text-sm text-gray-700 mt-4 font-display">Loading...</p>
       </div>
     );
   }
 
   if (!project) {
     return (
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-6 text-center">
-        <p className="text-sm text-slate-400">Project not found</p>
+      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+        <p className="text-sm text-gray-700 font-display">Project not found</p>
         <Link
           href="/dashboard"
-          className="mt-4 inline-block text-sm text-sky-500 hover:text-sky-400"
+          className="mt-4 inline-block text-sm text-sky-600 hover:text-sky-500 transition-colors font-display"
         >
           ← Back to Dashboard
         </Link>
@@ -41,18 +42,18 @@ export default function ProjectDetailContent({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center gap-4">
         <Link
           href="/dashboard"
-          className="text-slate-400 hover:text-slate-300"
+          className="text-gray-700 hover:text-sky-600 transition-colors font-display"
         >
           ← Back to Dashboard
         </Link>
         <div>
-          <h1 className="text-2xl font-bold">{project.name}</h1>
+          <h1 className="text-3xl font-display font-bold text-black">{project.name}</h1>
           {project.description && (
-            <p className="text-sm text-slate-400 mt-1">{project.description}</p>
+            <p className="text-sm text-gray-700">{project.description}</p>
           )}
         </div>
       </div>

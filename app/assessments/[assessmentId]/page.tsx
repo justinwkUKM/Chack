@@ -19,7 +19,7 @@ export default async function AssessmentDetailPage({
   const { assessmentId } = await params;
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10">
+    <main className="mx-auto max-w-6xl px-4 py-10 bg-white">
       <AssessmentDetailContent
         assessmentId={assessmentId}
         userId={session.user.id}
