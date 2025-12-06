@@ -105,6 +105,18 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_assessment", ["assessmentId"]),
 
+  // Scan logs table - real-time logs from SSE streams
+  scanLogs: defineTable({
+    assessmentId: v.string(),
+    timestamp: v.number(),
+    author: v.string(), // "agent" | "user" | "system"
+    text: v.string(),
+    type: v.optional(v.string()), // "text" | "functionCall" | "functionResponse"
+    createdAt: v.number(),
+  })
+    .index("by_assessment", ["assessmentId"])
+    .index("by_assessment_timestamp", ["assessmentId", "timestamp"]),
+
   // Credit transactions table - tracks credit usage and additions
   creditTransactions: defineTable({
     orgId: v.string(),

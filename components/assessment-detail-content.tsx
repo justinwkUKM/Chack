@@ -28,10 +28,14 @@ export default function AssessmentDetailContent({
   const updateAssessmentStatus = useMutation(api.assessments.updateStatus);
   const parseReport = useMutation(api.assessments.parseReport);
   const deleteAssessment = useMutation(api.assessments.deleteAssessment);
+  const addLogsBatch = useMutation(api.scanLogs.addLogsBatch);
+  const persistedLogs = useQuery(api.scanLogs.list, { assessmentId });
   const scanTriggered = useRef(false);
   const [isFetchingReport, setIsFetchingReport] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const logsPersistTimer = useRef<NodeJS.Timeout | null>(null);
+  const pendingLogs = useRef<any[]>([]);
 
   // Setup SSE for real-time scanning
   const scanUrl = `/api/assessments/${assessmentId}/scan`;
@@ -88,7 +92,66 @@ export default function AssessmentDetailContent({
   const { logs, isStreaming, finalReport, error, start, stop } = useSSE(scanUrl, {
     method: "POST",
     body: requestBody,
+    onEvent: (event) => {
+      // Add new logs to pending batch for persistence
+      if (event.content?.parts) {
+        for (const part of event.content.parts) {
+          if (part.text) {
+            pendingLogs.current.push({
+              assessmentId,
+              timestamp: event.timestamp || Date.now(),
+              author: event.author || "agent",
+              text: part.text,
+              type: "text",
+            });
+          }
+          if (part.functionCall) {
+            pendingLogs.current.push({
+              assessmentId,
+              timestamp: event.timestamp || Date.now(),
+              author: event.author || "agent",
+              text: part.functionCall.name,
+              type: "functionCall",
+            });
+          }
+          if (part.functionResponse) {
+            pendingLogs.current.push({
+              assessmentId,
+              timestamp: event.timestamp || Date.now(),
+              author: event.author || "agent",
+              text: part.functionResponse.name,
+              type: "functionResponse",
+            });
+          }
+        }
+      }
+
+      // Batch persist logs every 2 seconds
+      if (logsPersistTimer.current) {
+        clearTimeout(logsPersistTimer.current);
+      }
+      logsPersistTimer.current = setTimeout(async () => {
+        if (pendingLogs.current.length > 0) {
+          try {
+            await addLogsBatch({ logs: pendingLogs.current });
+            pendingLogs.current = [];
+          } catch (err) {
+            console.error("[AssessmentDetail] Failed to persist logs:", err);
+          }
+        }
+      }, 2000);
+    },
     onComplete: async (report) => {
+      // Persist any remaining logs
+      if (pendingLogs.current.length > 0) {
+        try {
+          await addLogsBatch({ logs: pendingLogs.current });
+          pendingLogs.current = [];
+        } catch (err) {
+          console.error("[AssessmentDetail] Failed to persist final logs:", err);
+        }
+      }
+
       if (report && assessment) {
         try {
           // Parse the report and create findings/results
@@ -187,6 +250,42 @@ export default function AssessmentDetailContent({
       };
     }
   }, [assessment, assessmentId, requestBody, start, stop]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (logsPersistTimer.current) {
+        clearTimeout(logsPersistTimer.current);
+      }
+      // Persist any remaining logs before unmount
+      if (pendingLogs.current.length > 0) {
+        addLogsBatch({ logs: pendingLogs.current }).catch(err => {
+          console.error("[AssessmentDetail] Failed to persist logs on unmount:", err);
+        });
+      }
+    };
+  }, [addLogsBatch]);
+
+  // Combine persisted logs with live logs
+  const allLogs = useMemo(() => {
+    const persistedLogEntries = (persistedLogs || []).map(log => ({
+      id: log._id,
+      timestamp: log.timestamp,
+      author: log.author,
+      text: log.text,
+      type: log.type as "text" | "functionCall" | "functionResponse" | undefined,
+    }));
+
+    // Merge with live logs, avoiding duplicates
+    const liveLogIds = new Set(logs.map(l => `${l.timestamp}-${l.text}`));
+    const uniquePersistedLogs = persistedLogEntries.filter(
+      log => !liveLogIds.has(`${log.timestamp}-${log.text}`)
+    );
+
+    return [...uniquePersistedLogs, ...logs].sort((a, b) => 
+      (a.timestamp || 0) - (b.timestamp || 0)
+    );
+  }, [persistedLogs, logs]);
 
   if (assessment === undefined) {
     return (
@@ -362,15 +461,16 @@ export default function AssessmentDetailContent({
                 <p className="text-sm text-muted-foreground font-display">
                   Running security assessment... Real-time logs are shown below.
                 </p>
-                <div className="mt-3 text-xs text-muted-foreground">
-                  {isStreaming ? "🟢 Streaming active" : "⏸️ Waiting to start..."}
-                  {logs.length > 0 && ` | ${logs.length} log entries`}
-                  {isFetchingReport && " | 📥 Fetching report from session..."}
-                </div>
-              </div>
+            <div className="mt-3 text-xs text-muted-foreground">
+              {isStreaming ? "🟢 Streaming active" : "⏸️ Waiting to start..."}
+              {allLogs.length > 0 && ` | ${allLogs.length} log entries`}
+              {persistedLogs && persistedLogs.length > 0 && ` (${persistedLogs.length} persisted)`}
+              {isFetchingReport && " | 📥 Fetching report from session..."}
             </div>
           </div>
-          <TerminalViewer logs={logs} isStreaming={isStreaming} />
+        </div>
+      </div>
+          <TerminalViewer logs={allLogs} isStreaming={isStreaming} />
           {error && (
             <div className="rounded-xl border border-red-300 bg-red-50 p-4">
               <p className="text-sm text-red-800 font-display font-semibold mb-1">
@@ -392,7 +492,11 @@ export default function AssessmentDetailContent({
           )}
           <div className="text-xs text-muted-foreground space-y-1 bg-muted/50 p-3 rounded-lg border border-border">
             <div>Status: {isStreaming ? "🟢 Streaming" : "⏸️ Not streaming"}</div>
-            <div>Logs received: {logs.length}</div>
+            <div>Live logs: {logs.length}</div>
+            <div>Total logs: {allLogs.length}</div>
+            {persistedLogs && persistedLogs.length > 0 && (
+              <div>Persisted logs: {persistedLogs.length} (restored from database)</div>
+            )}
             {finalReport && <div>✅ Report extracted ({finalReport.length} chars)</div>}
             {isFetchingReport && <div>📥 Fetching report from session...</div>}
             {reportData && reportData.success && (
