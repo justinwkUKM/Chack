@@ -574,21 +574,6 @@ export default function AssessmentDetailContent({
             </div>
           )}
           
-          {/* Real-time Scan Logs Section */}
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-display font-semibold text-foreground flex items-center gap-2">
-                <span className="text-lg">📜</span>
-                Live Scan Logs
-                {isStreaming && <span className="animate-pulse">⚡</span>}
-              </h3>
-              <div className="text-xs text-muted-foreground">
-                Watching the AI work its magic...
-              </div>
-            </div>
-            <TerminalViewer logs={allLogs} isStreaming={isStreaming} />
-          </div>
-
           {/* Debug Info Section */}
           <details className="text-xs text-muted-foreground space-y-1 bg-muted/50 p-3 rounded-lg border border-border">
             <summary className="cursor-pointer hover:text-foreground transition-colors font-medium">
