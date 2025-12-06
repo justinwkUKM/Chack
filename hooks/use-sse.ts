@@ -158,7 +158,8 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
               currentOptions.onStreamEnd();
             }
             
-            if (currentOptions.onComplete && !hasReport) {
+            // Call onComplete without report (user will fetch manually)
+            if (currentOptions.onComplete) {
               currentOptions.onComplete();
             }
             break;
@@ -242,21 +243,9 @@ export function useSSE(url: string, options: UseSSEOptions = {}) {
                       type: "text",
                       raw: part,
                     });
-
-                    // Check for final report
-                    const reportType = currentOptions.body?.type || "blackbox";
-                    const report = extractReport(text, reportType);
-                    if (report) {
-                      console.log("[useSSE] Final report detected!");
-                      hasReport = true;
-                      setFinalReport(report);
-                      setIsStreaming(false);
-                      if (currentOptions.onComplete) {
-                        currentOptions.onComplete(report);
-                      }
-                      abortController.abort();
-                      return;
-                    }
+                    
+                    // NOTE: We don't extract reports here anymore
+                    // Reports are only fetched when user clicks "Generate Report" button
                   }
 
                   // Handle function calls

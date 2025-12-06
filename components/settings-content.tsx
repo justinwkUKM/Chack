@@ -362,7 +362,7 @@ export default function SettingsContent({
                     </span>
                   )}
                 </div>
-                <div className="text-3xl font-display font-bold mb-4 text-foreground">$99/mo</div>
+                <div className="text-3xl font-display font-bold mb-4 text-foreground">$49/mo</div>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li>✓ 1000 credits included</li>
                   <li>✓ All features</li>

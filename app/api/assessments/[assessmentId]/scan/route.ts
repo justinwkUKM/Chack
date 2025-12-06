@@ -9,7 +9,10 @@ import { api } from "@/convex/_generated/api";
 const API_URL = process.env.ASSESSMENT_API_URL || "https://chack.ngrok.app";
 const APP_NAME = process.env.ASSESSMENT_APP_NAME || "Nassa";
 
-// Helper function to check for report and update assessment
+// NOTE: Report checking is REMOVED
+// Reports are now ONLY fetched when user clicks "Generate Report" button
+// This function is kept for reference but not used anymore
+/*
 async function checkAndUpdateReport(
   assessmentId: string,
   sessionId: string,
@@ -62,6 +65,7 @@ async function checkAndUpdateReport(
     throw error;
   }
 }
+*/
 
 export async function POST(
   request: NextRequest,
@@ -251,6 +255,14 @@ export async function POST(
         let buffer = "";
         let eventCount = 0;
         let isClosed = false;
+        let lastEventId: string | null = null;
+
+        // Check if client wants to resume from a specific event
+        const clientLastEventId = request.headers.get("Last-Event-ID");
+        if (clientLastEventId) {
+          console.log(`[Scan API] Client requesting resume from event ID: ${clientLastEventId}`);
+          lastEventId = clientLastEventId;
+        }
 
         // Helper to safely enqueue data
         const safeEnqueue = (data: Uint8Array) => {
@@ -309,11 +321,15 @@ export async function POST(
                   }
                 }
 
-                // If we have data, forward it
+                // If we have data, forward it with event ID
                 if (dataLine) {
+                  // Generate event ID for this event
+                  const currentEventId = `${sessionId}-${eventCount}`;
+                  lastEventId = currentEventId;
+                  
                   const output = eventType 
-                    ? `event: ${eventType}\ndata: ${dataLine}\n\n`
-                    : `data: ${dataLine}\n\n`;
+                    ? `id: ${currentEventId}\nevent: ${eventType}\ndata: ${dataLine}\n\n`
+                    : `id: ${currentEventId}\ndata: ${dataLine}\n\n`;
                   
                   safeEnqueue(new TextEncoder().encode(output));
                   
@@ -345,23 +361,16 @@ export async function POST(
             isClosed = true;
           }
         } finally {
-          // Stream finished or was cancelled - try to fetch report
-          if (isClosed) {
-            console.log(`[Scan API] Stream closed - checking for report...`);
-            try {
-              await checkAndUpdateReport(assessmentId, sessionId, scanType);
-            } catch (err) {
-              console.log(`[Scan API] Could not fetch report:`, err);
-            }
-          }
+          // Stream finished
+          console.log(`[Scan API] Stream ended. Report will be generated when user clicks button.`);
+          // NOTE: We do NOT call checkAndUpdateReport() here anymore
+          // Report is ONLY fetched when user explicitly clicks "Generate Report" button
         }
       },
       cancel() {
         console.log(`[Scan API] Stream cancelled by client`);
-        // Attempt to fetch report after cancellation
-        checkAndUpdateReport(assessmentId, sessionId, scanType).catch((err) => {
-          console.log(`[Scan API] Could not fetch report after cancel:`, err);
-        });
+        // NOTE: We do NOT call checkAndUpdateReport() here anymore
+        // Report is ONLY fetched when user explicitly clicks "Generate Report" button
       },
     });
 

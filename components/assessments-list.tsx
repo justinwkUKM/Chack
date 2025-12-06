@@ -21,12 +21,12 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [assessmentName, setAssessmentName] = useState("");
   const [assessmentDescription, setAssessmentDescription] = useState("");
-  const [assessmentType, setAssessmentType] = useState("blackbox");
+  const [assessmentType, setAssessmentType] = useState<"blackbox" | "whitebox" | "auto">("auto");
   const [targetType, setTargetType] = useState("web_app");
   const [targetUrl, setTargetUrl] = useState("");
-  const [gitRepoUrl, setGitRepoUrl] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [detectedType, setDetectedType] = useState<"blackbox" | "whitebox" | null>(null);
 
   const assessments = useQuery(api.assessments.list, { projectId }) ?? [];
   const createAssessment = useMutation(api.assessments.create);
@@ -36,6 +36,60 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
     project && "orgId" in project && project.orgId ? { orgId: project.orgId } : "skip"
   );
   const hasCredits = org && "credits" in org ? (org.credits ?? 0) > 0 : false;
+  
+  // Auto-detect assessment type based on URL
+  const detectAssessmentType = (url: string): "blackbox" | "whitebox" | null => {
+    if (!url.trim()) return null;
+    
+    const trimmedUrl = url.trim().toLowerCase();
+    
+    // Check for git repository patterns
+    const gitPatterns = [
+      /github\.com/i,
+      /gitlab\.com/i,
+      /bitbucket\.org/i,
+      /\.git$/i,
+      /^git@/i,
+      /git\+https?:\/\//i,
+    ];
+    
+    const isGitRepo = gitPatterns.some(pattern => pattern.test(trimmedUrl));
+    
+    if (isGitRepo) {
+      return "whitebox";
+    }
+    
+    // Check for HTTP/HTTPS URL (blackbox)
+    try {
+      const urlObj = new URL(trimmedUrl.startsWith('http') ? trimmedUrl : `https://${trimmedUrl}`);
+      if (urlObj.protocol === 'http:' || urlObj.protocol === 'https:') {
+        return "blackbox";
+      }
+    } catch {
+      // Not a valid URL yet
+    }
+    
+    return null;
+  };
+
+  // Handle URL input change with auto-detection
+  const handleUrlChange = (value: string) => {
+    setTargetUrl(value);
+    
+    // Clear URL errors when user types
+    if (errors.targetUrl) {
+      setErrors({ ...errors, targetUrl: "" });
+    }
+    
+    // Auto-detect type
+    const detected = detectAssessmentType(value);
+    setDetectedType(detected);
+    
+    // Auto-set type if detected
+    if (detected) {
+      setAssessmentType(detected);
+    }
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -49,28 +103,29 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
       newErrors.name = "📚 Whoa! Keep it under 100 characters, Shakespeare.";
     }
 
-    // URL validation for blackbox
-    if (assessmentType === "blackbox") {
-      if (!targetUrl.trim()) {
-        newErrors.targetUrl = "🎯 Where should we scan? URL required!";
-      } else {
+    // URL validation - single input for both types
+    if (!targetUrl.trim()) {
+      newErrors.targetUrl = "🎯 Please enter a URL or Git repository!";
+    } else {
+      const detected = detectAssessmentType(targetUrl);
+      
+      if (!detected) {
+        newErrors.targetUrl = "🤨 That doesn't look like a valid URL or Git repository. Try again?";
+      } else if (detected === "blackbox") {
+        // Validate HTTP/HTTPS URL
         try {
-          const url = new URL(targetUrl);
+          const url = new URL(targetUrl.startsWith('http') ? targetUrl : `https://${targetUrl}`);
           if (!url.protocol.match(/^https?:$/)) {
             newErrors.targetUrl = "🔒 Only HTTP/HTTPS URLs allowed. No funny business!";
           }
         } catch {
           newErrors.targetUrl = "🤨 That doesn't look like a valid URL. Try again?";
         }
-      }
-    }
-
-    // Git repo validation for whitebox
-    if (assessmentType === "whitebox") {
-      if (!gitRepoUrl.trim()) {
-        newErrors.gitRepoUrl = "📦 Git repo URL needed. Where's the code hiding?";
-      } else if (!gitRepoUrl.match(/^https?:\/\/.+\/.+/)) {
-        newErrors.gitRepoUrl = "🐙 Hmm, that doesn't look like a git repo URL...";
+      } else if (detected === "whitebox") {
+        // Validate Git URL format
+        if (!targetUrl.match(/^(https?:\/\/|git@).+\.(git|com|org)/i) && !targetUrl.includes('github.com') && !targetUrl.includes('gitlab.com') && !targetUrl.includes('bitbucket.org')) {
+          newErrors.targetUrl = "🐙 Hmm, that doesn't look like a git repository URL...";
+        }
       }
     }
 
@@ -94,15 +149,29 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
     setIsSubmitting(true);
 
     try {
+      // Determine final type (use detected if auto, otherwise use selected)
+      const finalType = assessmentType === "auto" && detectedType ? detectedType : (assessmentType as "blackbox" | "whitebox");
+      
+      if (!finalType) {
+        showError("🚨 Could not determine assessment type. Please check your URL.");
+        return;
+      }
+
+      // Normalize URL for blackbox (add https:// if missing)
+      let normalizedUrl = targetUrl.trim();
+      if (finalType === "blackbox" && !normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+        normalizedUrl = `https://${normalizedUrl}`;
+      }
+
       // Create assessment (status will be "running")
       const assessmentId = await createAssessment({
         projectId,
         name: assessmentName,
         description: assessmentDescription || undefined,
-        type: assessmentType,
+        type: finalType,
         targetType,
-        targetUrl: assessmentType === "blackbox" ? (targetUrl || undefined) : undefined,
-        gitRepoUrl: assessmentType === "whitebox" ? (gitRepoUrl || undefined) : undefined,
+        targetUrl: finalType === "blackbox" ? normalizedUrl : undefined,
+        gitRepoUrl: finalType === "whitebox" ? normalizedUrl : undefined,
         createdByUserId: session.user.id,
       });
 
@@ -111,7 +180,8 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
       setAssessmentName("");
       setAssessmentDescription("");
       setTargetUrl("");
-      setGitRepoUrl("");
+      setDetectedType(null);
+      setAssessmentType("auto");
       setErrors({});
       setShowCreateForm(false);
 
@@ -249,12 +319,26 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
               </label>
               <select
                 value={assessmentType}
-                onChange={(e) => setAssessmentType(e.target.value)}
+                onChange={(e) => {
+                  const newType = e.target.value as "blackbox" | "whitebox" | "auto";
+                  setAssessmentType(newType);
+                  // Re-detect if switching to auto
+                  if (newType === "auto" && targetUrl) {
+                    const detected = detectAssessmentType(targetUrl);
+                    setDetectedType(detected);
+                  }
+                }}
                 className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all duration-300"
               >
+                <option value="auto">Auto-detect</option>
                 <option value="blackbox">Blackbox</option>
                 <option value="whitebox">Whitebox</option>
               </select>
+              {detectedType && assessmentType === "auto" && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  ✨ Detected: <span className="font-semibold capitalize">{detectedType}</span>
+                </p>
+              )}
             </div>
 
             <div>
@@ -274,46 +358,41 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
             </div>
           </div>
 
-          {assessmentType === "blackbox" ? (
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2 font-display">
-                Target URL *
-              </label>
-              <input
-                type="url"
-                placeholder="https://app.example.com"
-                value={targetUrl}
-                onChange={(e) => {
-                  setTargetUrl(e.target.value);
-                  if (errors.targetUrl) setErrors({ ...errors, targetUrl: "" });
-                }}
-                className={`w-full rounded-xl border ${errors.targetUrl ? 'border-red-500 focus:ring-red-400' : 'border-border focus:ring-primary/40'} bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:border-primary transition-all duration-300`}
-              />
-              {errors.targetUrl && (
-                <p className="text-xs text-red-500 mt-1 font-display animate-slide-in-down">{errors.targetUrl}</p>
-              )}
-            </div>
-          ) : (
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2 font-display">
-                Git Repository URL *
-              </label>
-              <input
-                type="url"
-                placeholder="https://github.com/user/repo.git"
-                value={gitRepoUrl}
-                onChange={(e) => {
-                  setGitRepoUrl(e.target.value);
-                  if (errors.gitRepoUrl) setErrors({ ...errors, gitRepoUrl: "" });
-                }}
-                className={`w-full rounded-xl border ${errors.gitRepoUrl ? 'border-red-500 focus:ring-red-400' : 'border-border focus:ring-primary/40'} bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:border-primary transition-all duration-300`}
-              />
-              {errors.gitRepoUrl && (
-                <p className="text-xs text-red-500 mt-1 font-display animate-slide-in-down">{errors.gitRepoUrl}</p>
-              )}
-              <p className="text-xs text-muted-foreground mt-1">Must be a public repository</p>
-            </div>
-          )}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2 font-display">
+              URL or Git Repository *
+            </label>
+            <input
+              type="text"
+              placeholder="https://app.example.com or https://github.com/user/repo.git"
+              value={targetUrl}
+              onChange={(e) => handleUrlChange(e.target.value)}
+              className={`w-full rounded-xl border ${errors.targetUrl ? 'border-red-500 focus:ring-red-400' : 'border-border focus:ring-primary/40'} bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:border-primary transition-all duration-300`}
+            />
+            {errors.targetUrl && (
+              <p className="text-xs text-red-500 mt-1 font-display animate-slide-in-down">{errors.targetUrl}</p>
+            )}
+            {!errors.targetUrl && detectedType && (
+              <div className="mt-2 flex items-center gap-2 text-xs">
+                {detectedType === "blackbox" ? (
+                  <>
+                    <span className="text-blue-600 dark:text-blue-400">🔵</span>
+                    <span className="text-muted-foreground">Detected as <span className="font-semibold">Blackbox</span> (web application)</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-green-600 dark:text-green-400">🟢</span>
+                    <span className="text-muted-foreground">Detected as <span className="font-semibold">Whitebox</span> (source code analysis)</span>
+                  </>
+                )}
+              </div>
+            )}
+            {!errors.targetUrl && !detectedType && targetUrl && (
+              <p className="text-xs text-muted-foreground mt-1">
+                💡 Enter a web URL (https://example.com) or Git repository (github.com/user/repo)
+              </p>
+            )}
+          </div>
 
           <button
             type="submit"

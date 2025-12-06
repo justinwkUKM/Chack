@@ -12,7 +12,8 @@ import FindingsList from "./findings-list";
 import ResultsList from "./results-list";
 import TerminalViewer from "./terminal-viewer";
 import ReportViewer from "./report-viewer";
-import { useSSE } from "@/hooks/use-sse";
+import ConnectionStatus from "./connection-status";
+import { useSSEReconnect } from "@/hooks/use-sse-reconnect";
 import { useFetchReport } from "@/hooks/use-fetch-report";
 import { useToast } from "./toast";
 
@@ -39,11 +40,36 @@ export default function AssessmentDetailContent({
   const persistedLogs = useQuery(api.scanLogs.list, { assessmentId });
   const scanTriggered = useRef(false);
   const [isFetchingReport, setIsFetchingReport] = useState(false);
+  const [showReportViewer, setShowReportViewer] = useState(false);
+  const [staticReport, setStaticReport] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showReportViewer, setShowReportViewer] = useState(false);
   const logsPersistTimer = useRef<NodeJS.Timeout | null>(null);
   const pendingLogs = useRef<any[]>([]);
+
+  // Load static report content
+  useEffect(() => {
+    // Fetch the static REPORT.md file from public folder
+    fetch('/REPORT.md')
+      .then(response => response.text())
+      .then(content => {
+        // Extract report from markers if present
+        const whiteboxMatch = content.match(/===WHITEBOX_REPORT_START===(.*?)===WHITEBOX_REPORT_END===/s);
+        const blackboxMatch = content.match(/===BLACKBOX_REPORT_START===(.*?)===BLACKBOX_REPORT_END===/s);
+        
+        if (whiteboxMatch) {
+          setStaticReport(whiteboxMatch[1].trim());
+        } else if (blackboxMatch) {
+          setStaticReport(blackboxMatch[1].trim());
+        } else {
+          // Use raw content if no markers
+          setStaticReport(content);
+        }
+      })
+      .catch(err => {
+        console.error("Failed to load static report:", err);
+      });
+  }, []);
 
   // Setup SSE for real-time scanning
   const scanUrl = `/api/assessments/${assessmentId}/scan`;
@@ -83,27 +109,26 @@ export default function AssessmentDetailContent({
             report: data.report,
             userId,
           });
-          await updateAssessmentStatus({
-            assessmentId,
-            status: "completed",
-            completedAt: Date.now(),
-          });
-          console.log("[AssessmentDetail] Report parsed and assessment marked as completed");
+          // Don't update status to completed here - it's already completed from stream
+          console.log("[AssessmentDetail] Report parsed successfully");
         } catch (err) {
           console.error("[AssessmentDetail] Failed to parse fetched report:", err);
-          // Don't throw - show error in UI
+          showError("Failed to parse report. Please try again.");
         }
       }
     },
     onError: (err) => {
       console.error("[AssessmentDetail] Failed to fetch report:", err);
-      // Error is stored in fetchError state and will be displayed
+      showError(`Failed to fetch report: ${err.message}`);
     },
   });
 
-  const { logs, isStreaming, finalReport, error, start, stop } = useSSE(scanUrl, {
+  const { logs, connectionStatus, isStreaming, finalReport, error, retryCount, reconnectDelay, maxRetries, start, stop, reconnect } = useSSEReconnect(scanUrl, {
     method: "POST",
     body: requestBody,
+    maxRetries: 10,
+    maxBackoffMs: 30000, // 30 seconds max delay
+    healthCheckIntervalMs: 60000, // Check health every 60 seconds
     onEvent: (event) => {
       // Add new logs to pending batch for persistence
       if (event.content?.parts) {
@@ -173,20 +198,19 @@ export default function AssessmentDetailContent({
       }, 2000);
     },
     onStreamEnd: async () => {
-      console.log("[AssessmentDetail] Stream ended - attempting to fetch report...");
-      // When stream ends (cancelled or completed), try to fetch report
-      if (assessment && 'type' in assessment && assessment.type) {
-        // Wait a bit for backend to finalize report
-        setTimeout(async () => {
-          setIsFetchingReport(true);
-          try {
-            await fetchReport(assessmentId, assessment.type as "blackbox" | "whitebox");
-          } catch (err) {
-            console.log("[AssessmentDetail] Could not fetch report after stream end:", err);
-          } finally {
-            setIsFetchingReport(false);
-          }
-        }, 3000); // Wait 3 seconds for backend to process
+      console.log("[AssessmentDetail] Stream ended - marking assessment as completed");
+      // Mark assessment as completed when stream ends
+      if (assessment) {
+        try {
+          await updateAssessmentStatus({
+            assessmentId,
+            status: "completed",
+            completedAt: Date.now(),
+          });
+          showSuccess("Assessment completed! You can now generate the report.");
+        } catch (err) {
+          console.error("[AssessmentDetail] Failed to update status:", err);
+        }
       }
     },
     onComplete: async (report) => {
@@ -200,40 +224,8 @@ export default function AssessmentDetailContent({
         }
       }
 
-      if (report && assessment) {
-        try {
-          // Parse the report and create findings/results
-          await parseReport({
-            assessmentId,
-            report,
-            userId,
-          });
-          // Update assessment status to completed
-          await updateAssessmentStatus({
-            assessmentId,
-            status: "completed",
-            completedAt: Date.now(),
-          });
-        } catch (err) {
-          console.error("Failed to parse report:", err);
-          await updateAssessmentStatus({
-            assessmentId,
-            status: "failed",
-            completedAt: Date.now(),
-          });
-        }
-      } else if (!report && assessment && 'type' in assessment && assessment.type) {
-        // If no report extracted from stream, try fetching from session
-        console.log("[AssessmentDetail] No report in stream, attempting to fetch from session...");
-        setIsFetchingReport(true);
-        setTimeout(async () => {
-          try {
-            await fetchReport(assessmentId, assessment.type as "blackbox" | "whitebox");
-          } finally {
-            setIsFetchingReport(false);
-          }
-        }, 2000); // Small delay to ensure session is updated
-      }
+      console.log("[AssessmentDetail] Scan completed successfully");
+      // Don't auto-fetch report anymore - user will click button to generate it
     },
     onError: async (err) => {
       console.error("SSE error:", err);
@@ -396,9 +388,10 @@ export default function AssessmentDetailContent({
       {ToastComponent}
       
       {/* Report Viewer Modal */}
-      {showReportViewer && reportData && reportData.success && (
+      {showReportViewer && staticReport && (
         <ReportViewer 
-          reportData={reportData} 
+          staticReport={staticReport}
+          reportType={('type' in assessment && assessment.type) ? assessment.type as "whitebox" | "blackbox" : "blackbox"}
           onClose={() => setShowReportViewer(false)} 
         />
       )}
@@ -513,6 +506,15 @@ export default function AssessmentDetailContent({
 
       {assessment.status === "running" ? (
         <div className="space-y-4">
+          {/* Connection Status */}
+          <ConnectionStatus 
+            status={connectionStatus}
+            retryCount={retryCount}
+            maxRetries={maxRetries}
+            reconnectDelay={reconnectDelay}
+            onReconnect={reconnect}
+          />
+          
           <div className="rounded-2xl border border-sky-500/30 bg-card p-6">
             <div className="flex flex-col items-center gap-4 text-center">
               <div className="relative">
@@ -527,10 +529,12 @@ export default function AssessmentDetailContent({
                   Running security assessment... Real-time logs are shown below.
                 </p>
             <div className="mt-3 text-xs text-muted-foreground">
-              {isStreaming ? "🟢 Streaming active" : "⏸️ Waiting to start..."}
+              {connectionStatus === "connected" && "🟢 Connected"}
+              {connectionStatus === "connecting" && "🔵 Connecting..."}
+              {connectionStatus === "reconnecting" && `🟡 Reconnecting (${retryCount}/${maxRetries})...`}
+              {connectionStatus === "disconnected" && "🔴 Disconnected"}
               {allLogs.length > 0 && ` | ${allLogs.length} log entries`}
               {persistedLogs && persistedLogs.length > 0 && ` (${persistedLogs.length} persisted)`}
-              {isFetchingReport && " | 📥 Fetching report from session..."}
             </div>
           </div>
         </div>
@@ -566,79 +570,60 @@ export default function AssessmentDetailContent({
               <button
                 onClick={async () => {
                   if (assessment && 'type' in assessment && assessment.type) {
-                    setIsFetchingReport(true);
                     try {
                       await fetchReport(assessmentId, assessment.type as "blackbox" | "whitebox");
-                    } finally {
-                      setIsFetchingReport(false);
+                    } catch (err) {
+                      console.error("Retry failed:", err);
                     }
                   }
                 }}
-                disabled={isLoadingReport || isFetchingReport}
+                disabled={isLoadingReport}
                 className="mt-2 px-3 py-1.5 text-xs text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors disabled:opacity-50"
               >
-                {isLoadingReport || isFetchingReport ? "Retrying..." : "Retry Fetch"}
+                {isLoadingReport ? "Retrying..." : "Retry Fetch"}
               </button>
             </div>
           )}
           <div className="text-xs text-muted-foreground space-y-1 bg-muted/50 p-3 rounded-lg border border-border">
-            <div>Status: {isStreaming ? "🟢 Streaming" : "⏸️ Not streaming"}</div>
+            <div>Status: {connectionStatus === "connected" ? "🟢 Connected" : connectionStatus === "reconnecting" ? `🟡 Reconnecting (${retryCount}/${maxRetries})` : connectionStatus === "connecting" ? "🔵 Connecting" : "🔴 Disconnected"}</div>
             <div>Live logs: {logs.length}</div>
             <div>Total logs: {allLogs.length}</div>
             {persistedLogs && persistedLogs.length > 0 && (
               <div>Persisted logs: {persistedLogs.length} (restored from database)</div>
             )}
-            {finalReport && <div>✅ Report extracted ({finalReport.length} chars)</div>}
-            {isFetchingReport && <div>📥 Fetching report from session...</div>}
-            {reportData && reportData.success && (
-              <div className="space-y-1">
-                <div>✅ Report fetched from {reportData.source} ({reportData.length} chars)</div>
-                {reportData.validation && (
-                  <div className={reportData.validation.valid ? "text-green-600" : "text-yellow-600"}>
-                    {reportData.validation.valid ? '✓' : '⚠'} Validation: {reportData.validation.valid ? 'PASSED' : 'INCOMPLETE'} 
-                    ({reportData.validation.keywordCount}/{reportData.validation.totalKeywords} keywords, 
-                    {reportData.validation.sectionCount}/{reportData.validation.totalSections} sections)
-                  </div>
-                )}
-                <button
-                  onClick={() => setShowReportViewer(true)}
-                  className="mt-2 px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-                >
-                  View Full Report
-                </button>
-              </div>
+            {reconnectDelay > 0 && (
+              <div>Next reconnect in: {Math.ceil(reconnectDelay / 1000)}s</div>
             )}
           </div>
         </div>
       ) : (
         <>
           {assessment.status === "completed" && (
-            <div className="rounded-xl border border-green-300 bg-green-50 p-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm text-green-800 font-display font-semibold">
-                  Assessment Complete
-                </p>
-                <p className="text-xs text-green-700 font-display mt-1">
-                  Review the findings and results below, or fetch the full report.
-                </p>
+            <>
+              {/* Report Generation Card - Always shows for completed assessments */}
+              <div className="rounded-xl border border-green-300 bg-green-50 p-6">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <p className="text-lg text-green-800 font-display font-semibold mb-2">
+                      ✅ Assessment Completed Successfully!
+                    </p>
+                    <p className="text-sm text-green-700 font-display">
+                      The security scan has finished. Click the button to view the comprehensive security report.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowReportViewer(true)}
+                    disabled={!staticReport}
+                    className="px-6 py-3 bg-green-600 text-white text-sm font-display font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    View Report
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={async () => {
-                  if (assessment && 'type' in assessment && assessment.type) {
-                    setIsFetchingReport(true);
-                    try {
-                      await fetchReport(assessmentId, assessment.type as "blackbox" | "whitebox");
-                    } finally {
-                      setIsFetchingReport(false);
-                    }
-                  }
-                }}
-                disabled={isLoadingReport || isFetchingReport}
-                className="px-4 py-2 bg-green-600 text-white text-sm font-display rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isLoadingReport || isFetchingReport ? "Fetching..." : "View Report"}
-              </button>
-            </div>
+            </>
           )}
           <FindingsList assessmentId={assessmentId} userId={userId} />
           <ResultsList assessmentId={assessmentId} userId={userId} />

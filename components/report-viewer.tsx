@@ -9,24 +9,33 @@ import { X, Download, CheckCircle, AlertCircle, FileText, Copy, Check } from "lu
 import type { ReportData } from "@/hooks/use-fetch-report";
 
 interface ReportViewerProps {
-  reportData: ReportData;
+  reportData?: ReportData; // Optional - for API-fetched reports
+  staticReport?: string;    // For static report content
+  reportType?: "whitebox" | "blackbox";
   onClose: () => void;
 }
 
-export default function ReportViewer({ reportData, onClose }: ReportViewerProps) {
+export default function ReportViewer({ reportData, staticReport, reportType = "blackbox", onClose }: ReportViewerProps) {
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<"rendered" | "raw">("rendered");
 
-  if (!reportData.report) {
+  // Use either API report or static report
+  const report = staticReport || reportData?.report;
+  const type = reportType || reportData?.reportType || "blackbox";
+  const validation = reportData?.validation;
+  const isValid = validation?.valid ?? true;
+
+  if (!report) {
     return null;
   }
 
   const handleDownload = () => {
-    const blob = new Blob([reportData.report!], { type: "text/markdown" });
+    const blob = new Blob([report], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${reportData.reportType}_report_${reportData.sessionId}_${new Date().getTime()}.md`;
+    const sessionId = reportData?.sessionId || "static";
+    a.download = `${type}_report_${sessionId}_${new Date().getTime()}.md`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -34,13 +43,10 @@ export default function ReportViewer({ reportData, onClose }: ReportViewerProps)
   };
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(reportData.report!);
+    await navigator.clipboard.writeText(report);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
-
-  const validation = reportData.validation;
-  const isValid = validation?.valid ?? true;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -51,10 +57,10 @@ export default function ReportViewer({ reportData, onClose }: ReportViewerProps)
             <FileText className="w-6 h-6 text-primary" />
             <div>
               <h2 className="text-2xl font-display font-bold text-foreground">
-                {reportData.reportType === "whitebox" ? "Whitebox" : "Blackbox"} Security Report
+                {type === "whitebox" ? "Whitebox" : "Blackbox"} Security Report
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Source: {reportData.source} • {reportData.length} characters
+                {staticReport ? "Static Report" : `Source: ${reportData?.source}`} • {report.length} characters
               </p>
             </div>
           </div>
@@ -168,12 +174,12 @@ export default function ReportViewer({ reportData, onClose }: ReportViewerProps)
               prose-td:border prose-td:border-border prose-td:p-2
             ">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {reportData.report}
+                {report}
               </ReactMarkdown>
             </div>
           ) : (
             <pre className="whitespace-pre-wrap font-mono text-sm text-foreground bg-muted/50 p-4 rounded-lg border border-border">
-              {reportData.report}
+              {report}
             </pre>
           )}
         </div>
