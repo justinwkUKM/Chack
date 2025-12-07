@@ -234,6 +234,7 @@ export function useSSEReconnect(url: string, options: UseSSEOptions = {}) {
       const decoder = new TextDecoder();
       let buffer = "";
       let eventCount = 0;
+      let allStreamText = ""; // Collect all text to extract report at end
 
       while (true) {
         const { done, value } = await reader.read();
@@ -242,12 +243,23 @@ export function useSSEReconnect(url: string, options: UseSSEOptions = {}) {
           console.log(`[useSSE] Stream ended naturally. Total events: ${eventCount}`);
           setConnectionStatus("disconnected");
           
+          // Extract report from all collected text
+          const reportType = currentOptions.body?.type || "blackbox";
+          const extractedReport = extractReport(allStreamText, reportType);
+          
+          if (extractedReport) {
+            console.log(`[useSSE] ✅ Report extracted from stream! (${extractedReport.length} chars)`);
+            setFinalReport(extractedReport);
+          } else {
+            console.log(`[useSSE] No report markers found in stream text`);
+          }
+          
           if (currentOptions.onStreamEnd) {
             currentOptions.onStreamEnd();
           }
           
           if (currentOptions.onComplete) {
-            currentOptions.onComplete();
+            currentOptions.onComplete(extractedReport || undefined);
           }
           
           // Clear localStorage on successful completion
@@ -322,14 +334,27 @@ export function useSSEReconnect(url: string, options: UseSSEOptions = {}) {
               for (const part of parts) {
                 // Handle text content
                 if (part.text) {
+                  const text = part.text;
+                  
+                  // Collect all text for report extraction
+                  allStreamText += text + "\n";
+                  
                   addLog({
                     author,
-                    text: part.text,
+                    text,
                     timestamp,
                     type: "text",
                     raw: part,
                     eventId: lastEventIdRef.current || undefined,
                   });
+                  
+                  // Check for report markers in real-time (optional - can also check at end)
+                  const reportType = currentOptions.body?.type || "blackbox";
+                  const report = extractReport(allStreamText, reportType);
+                  if (report) {
+                    console.log(`[useSSE] Report detected during stream!`);
+                    setFinalReport(report);
+                  }
                 }
 
                 // Handle function calls

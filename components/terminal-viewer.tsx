@@ -21,12 +21,20 @@ interface TerminalViewerProps {
 export default function TerminalViewer({ logs, isStreaming = false }: TerminalViewerProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when new logs arrive
+  // Auto-scroll behavior:
+  // - If streaming: scroll to bottom (newest logs)
+  // - If not streaming: scroll to top (for completed assessments showing newest first)
   useEffect(() => {
     if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+      if (isStreaming) {
+        // Scroll to bottom for live streaming
+        terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+      } else {
+        // Scroll to top for completed assessments (newest first)
+        terminalRef.current.scrollTop = 0;
+      }
     }
-  }, [logs]);
+  }, [logs, isStreaming]);
 
   const formatTimestamp = (timestamp?: number) => {
     if (!timestamp) return "";

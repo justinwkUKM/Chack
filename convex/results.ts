@@ -39,7 +39,7 @@ export const get = query({
 export const create = mutation({
   args: {
     assessmentId: v.string(),
-    type: v.string(), // "scan_data" | "vulnerability" | "configuration" | "log"
+    type: v.string(), // "scan_data" | "vulnerability" | "configuration" | "log" | "report"
     data: v.string(), // JSON string of the result data
     metadata: v.optional(v.string()), // Additional metadata as JSON
     createdByUserId: v.string(),
@@ -53,6 +53,48 @@ export const create = mutation({
       createdByUserId: args.createdByUserId,
       createdAt: Date.now(),
     });
+  },
+});
+
+// Save raw report from SSE stream
+export const saveReport = mutation({
+  args: {
+    assessmentId: v.string(),
+    report: v.string(), // Raw markdown report
+    reportType: v.string(), // "blackbox" | "whitebox"
+    createdByUserId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Check if report already exists for this assessment
+    const existingReports = await ctx.db
+      .query("results")
+      .withIndex("by_assessment", (q) =>
+        q.eq("assessmentId", args.assessmentId)
+      )
+      .filter((q) => q.eq(q.field("type"), "report"))
+      .collect();
+
+    // If report exists, update it; otherwise create new
+    if (existingReports.length > 0) {
+      // Update the most recent report
+      const latestReport = existingReports[0];
+      await ctx.db.patch(latestReport._id, {
+        data: JSON.stringify({ report: args.report, reportType: args.reportType }),
+        metadata: JSON.stringify({ format: "markdown", source: "sse_stream", savedAt: Date.now() }),
+        createdAt: Date.now(),
+      });
+      return latestReport._id;
+    } else {
+      // Create new report
+      return await ctx.db.insert("results", {
+        assessmentId: args.assessmentId,
+        type: "report",
+        data: JSON.stringify({ report: args.report, reportType: args.reportType }),
+        metadata: JSON.stringify({ format: "markdown", source: "sse_stream", savedAt: Date.now() }),
+        createdByUserId: args.createdByUserId,
+        createdAt: Date.now(),
+      });
+    }
   },
 });
 

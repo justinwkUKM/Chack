@@ -16,6 +16,8 @@ import ConnectionStatus from "./connection-status";
 import { useSSEReconnect } from "@/hooks/use-sse-reconnect";
 import { useFetchReport } from "@/hooks/use-fetch-report";
 import { useToast } from "./toast";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface AssessmentDetailContentProps {
   assessmentId: string;
@@ -37,7 +39,9 @@ export default function AssessmentDetailContent({
   const parseReport = useMutation(api.assessments.parseReport);
   const deleteAssessment = useMutation(api.assessments.deleteAssessment);
   const addLogsBatch = useMutation(api.scanLogs.addLogsBatch);
+  const saveReport = useMutation(api.results.saveReport);
   const persistedLogs = useQuery(api.scanLogs.list, { assessmentId });
+  const savedReport = useQuery(api.results.list, { assessmentId, type: "report" });
   const scanTriggered = useRef(false);
   const [isFetchingReport, setIsFetchingReport] = useState(false);
   const [showReportViewer, setShowReportViewer] = useState(false);
@@ -207,7 +211,11 @@ export default function AssessmentDetailContent({
             status: "completed",
             completedAt: Date.now(),
           });
-          showSuccess("Assessment completed! You can now generate the report.");
+          
+          // Check if we have a final report from the stream
+          // The report will be set in finalReport state by the hook
+          // We'll show success message accordingly
+          showSuccess("✅ Assessment completed! Report is ready below.");
         } catch (err) {
           console.error("[AssessmentDetail] Failed to update status:", err);
         }
@@ -224,18 +232,36 @@ export default function AssessmentDetailContent({
         }
       }
 
+      // Save the report to database if we have it
+      if (report && assessment) {
+        try {
+          const reportType = ('type' in assessment && assessment.type) 
+            ? (assessment.type as "blackbox" | "whitebox")
+            : "blackbox";
+          
+          console.log("[AssessmentDetail] Saving report to database...");
+          await saveReport({
+            assessmentId,
+            report,
+            reportType,
+            createdByUserId: userId,
+          });
+          console.log("[AssessmentDetail] ✅ Report saved to database successfully");
+          showSuccess("✅ Report saved successfully!");
+        } catch (err) {
+          console.error("[AssessmentDetail] Failed to save report to database:", err);
+          showError("Failed to save report to database");
+        }
+      }
+
       console.log("[AssessmentDetail] Scan completed successfully");
-      // Don't auto-fetch report anymore - user will click button to generate it
     },
     onError: async (err) => {
       console.error("SSE error:", err);
-      if (assessment) {
-        await updateAssessmentStatus({
-          assessmentId,
-          status: "failed",
-          completedAt: Date.now(),
-        });
-      }
+      // Don't fail the assessment on connection errors
+      // The reconnection mechanism will handle it
+      // Assessment continues running on the backend
+      console.log("[AssessmentDetail] Connection error occurred, but assessment continues running. Will attempt to reconnect.");
     },
     onStart: async (response) => {
       // Extract sessionId from response headers and save to assessment
@@ -255,27 +281,34 @@ export default function AssessmentDetailContent({
     },
   });
 
-  // Automatically start scan when assessment is running
+  // Automatically start or resume scan when assessment is running
   useEffect(() => {
-    if (assessment?.status === "running" && !scanTriggered.current) {
-      // Check if we have required data
-      const hasTarget = 'type' in assessment && assessment.type === "blackbox"
-        ? ('targetUrl' in assessment && !!assessment.targetUrl)
-        : ('gitRepoUrl' in assessment && !!assessment.gitRepoUrl);
-      
-      if (!hasTarget) {
-        console.warn("[AssessmentDetail] Missing target URL or git repo URL");
-        return;
-      }
+    if (!assessment || assessment.status !== "running") {
+      return;
+    }
 
-      // Check if request body is ready
-      if (!requestBody) {
-        console.warn("[AssessmentDetail] Request body not ready yet");
-        return;
-      }
+    // Check if we have required data
+    const hasTarget = 'type' in assessment && assessment.type === "blackbox"
+      ? ('targetUrl' in assessment && !!assessment.targetUrl)
+      : ('gitRepoUrl' in assessment && !!assessment.gitRepoUrl);
+    
+    if (!hasTarget) {
+      console.warn("[AssessmentDetail] Missing target URL or git repo URL");
+      return;
+    }
 
-      console.log("[AssessmentDetail] Starting scan for assessment:", assessmentId);
-      console.log("[AssessmentDetail] Request body:", requestBody);
+    // Check if request body is ready
+    if (!requestBody) {
+      console.warn("[AssessmentDetail] Request body not ready yet");
+      return;
+    }
+
+    // Start or resume connection
+    const shouldStart = !scanTriggered.current || (connectionStatus === "disconnected" && !isStreaming);
+    
+    if (shouldStart) {
+      console.log("[AssessmentDetail] Starting/resuming scan for assessment:", assessmentId);
+      console.log("[AssessmentDetail] Connection status:", connectionStatus, "Is streaming:", isStreaming);
       scanTriggered.current = true;
       
       // Small delay to ensure component is ready
@@ -286,10 +319,13 @@ export default function AssessmentDetailContent({
 
       return () => {
         clearTimeout(timeoutId);
-        stop();
+        // Don't stop the connection when user navigates away
+        // The assessment will continue running in the background
+        // User can come back and reconnect to see updates
+        console.log("[AssessmentDetail] Component unmounting, but scan continues in background");
       };
     }
-  }, [assessment, assessmentId, requestBody, start, stop]);
+  }, [assessment, assessmentId, requestBody, start, connectionStatus, isStreaming]);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -307,6 +343,8 @@ export default function AssessmentDetailContent({
   }, [addLogsBatch]);
 
   // Combine persisted logs with live logs
+  // When assessment is completed, show logs in descending order (newest first)
+  // When running, show logs in ascending order (oldest first) for live streaming
   const allLogs = useMemo(() => {
     const persistedLogEntries = (persistedLogs || []).map(log => ({
       id: log._id,
@@ -322,10 +360,34 @@ export default function AssessmentDetailContent({
       log => !liveLogIds.has(`${log.timestamp}-${log.text}`)
     );
 
-    return [...uniquePersistedLogs, ...logs].sort((a, b) => 
-      (a.timestamp || 0) - (b.timestamp || 0)
-    );
-  }, [persistedLogs, logs]);
+    const combined = [...uniquePersistedLogs, ...logs];
+    
+    // Sort based on assessment status
+    if (assessment?.status === "completed") {
+      // Descending order (newest first) for completed assessments
+      return combined.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    } else {
+      // Ascending order (oldest first) for running assessments
+      return combined.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    }
+  }, [persistedLogs, logs, assessment]);
+
+  // Extract saved report from database
+  const savedReportContent = useMemo(() => {
+    if (!savedReport || savedReport.length === 0) return null;
+    
+    try {
+      const latestReport = savedReport[0]; // Most recent report
+      const reportData = JSON.parse(latestReport.data);
+      return reportData.report || null;
+    } catch (err) {
+      console.error("[AssessmentDetail] Failed to parse saved report:", err);
+      return null;
+    }
+  }, [savedReport]);
+
+  // Use saved report if available, otherwise use finalReport from stream
+  const displayReport = savedReportContent || finalReport;
 
   if (assessment === undefined) {
     return (
@@ -515,30 +577,74 @@ export default function AssessmentDetailContent({
             onReconnect={reconnect}
           />
           
-          <div className="rounded-2xl border border-sky-500/30 bg-card p-6">
-            <div className="flex flex-col items-center gap-4 text-center">
+          <div className="rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-50 to-cyan-50 dark:from-sky-950/20 dark:to-cyan-950/20 p-8">
+            <div className="flex flex-col items-center justify-center gap-6 text-center min-h-[400px]">
               <div className="relative">
-                <div className="w-16 h-16 border-4 border-border border-t-primary rounded-full animate-spin"></div>
+                <div className="w-20 h-20 border-4 border-border border-t-primary rounded-full animate-spin"></div>
                 <div className="absolute inset-0 border-4 border-transparent border-r-cyan-500 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
               </div>
-              <div>
-                <h3 className="text-xl font-display font-semibold text-foreground mb-2">
-                  Scan in Progress
+              <div className="space-y-4 max-w-2xl mx-auto">
+                <h3 className="text-2xl font-display font-bold text-foreground">
+                  🔍 Security Scan in Progress
                 </h3>
-                <p className="text-sm text-muted-foreground font-display">
-                  Running security assessment... Real-time logs are shown below.
+                <p className="text-base text-muted-foreground font-display">
+                  Our cyber ninjas are hard at work analyzing your code! 🥷
                 </p>
-            <div className="mt-3 text-xs text-muted-foreground">
-              {connectionStatus === "connected" && "🟢 Connected"}
-              {connectionStatus === "connecting" && "🔵 Connecting..."}
-              {connectionStatus === "reconnecting" && `🟡 Reconnecting (${retryCount}/${maxRetries})...`}
-              {connectionStatus === "disconnected" && "🔴 Disconnected"}
-              {allLogs.length > 0 && ` | ${allLogs.length} log entries`}
-              {persistedLogs && persistedLogs.length > 0 && ` (${persistedLogs.length} persisted)`}
+                <div className="mt-6 p-6 rounded-xl bg-white/50 dark:bg-black/20 border border-sky-200 dark:border-sky-800">
+                  <p className="text-sm font-display font-semibold text-foreground mb-3">
+                    ⏱️ This usually takes 5-10 minutes
+                  </p>
+                  <p className="text-sm text-muted-foreground font-display mb-4">
+                    Feel free to grab a coffee ☕, 
+                    <a 
+                      href="https://www.youtube.com/results?search_query=funny+cat+videos" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-primary hover:text-primary/80 underline font-semibold mx-1"
+                    >
+                      watch some funny cat videos 🐱 on YouTube
+                    </a>
+                    , or just relax! Your scan will continue running even if you navigate away.
+                  </p>
+                  <p className="text-xs text-muted-foreground font-display italic">
+                    💡 Pro tip: You can come back anytime and reconnect to see the latest updates!
+                  </p>
+                </div>
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-xs">
+                  {connectionStatus === "connected" && (
+                    <span className="px-3 py-1.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-display font-semibold">
+                      🟢 Live & Connected
+                    </span>
+                  )}
+                  {connectionStatus === "connecting" && (
+                    <span className="px-3 py-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-display font-semibold">
+                      🔵 Connecting...
+                    </span>
+                  )}
+                  {connectionStatus === "reconnecting" && (
+                    <span className="px-3 py-1.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 font-display font-semibold">
+                      🟡 Reconnecting ({retryCount}/{maxRetries})...
+                    </span>
+                  )}
+                  {connectionStatus === "disconnected" && isStreaming && (
+                    <span className="px-3 py-1.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 font-display font-semibold">
+                      🔴 Disconnected (scan continues in background)
+                    </span>
+                  )}
+                  {allLogs.length > 0 && (
+                    <span className="px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-display">
+                      📊 {allLogs.length} log entries
+                    </span>
+                  )}
+                  {persistedLogs && persistedLogs.length > 0 && (
+                    <span className="px-3 py-1.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 font-display">
+                      💾 {persistedLogs.length} persisted
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
           <TerminalViewer logs={allLogs} isStreaming={isStreaming} />
           {error && (
             <div className="rounded-xl border border-red-300 bg-red-50 p-4">
@@ -594,37 +700,171 @@ export default function AssessmentDetailContent({
             {reconnectDelay > 0 && (
               <div>Next reconnect in: {Math.ceil(reconnectDelay / 1000)}s</div>
             )}
+            {finalReport && (
+              <div className="text-green-600 font-semibold">✅ Report extracted from stream ({finalReport.length} chars)</div>
+            )}
           </div>
-        </div>
-      ) : (
-        <>
-          {assessment.status === "completed" && (
-            <>
-              {/* Report Generation Card - Always shows for completed assessments */}
-              <div className="rounded-xl border border-green-300 bg-green-50 p-6">
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                  <div className="flex-1">
-                    <p className="text-lg text-green-800 font-display font-semibold mb-2">
-                      ✅ Assessment Completed Successfully!
-                    </p>
-                    <p className="text-sm text-green-700 font-display">
-                      The security scan has finished. Click the button to view the comprehensive security report.
+          
+          {/* Final Report Display - Shows when SSE completes with report */}
+          {finalReport && connectionStatus === "disconnected" && (
+            <div className="rounded-2xl border border-primary/20 bg-card shadow-lg">
+              <div className="p-6 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-2xl font-display font-bold text-foreground mb-2">
+                      📄 Security Assessment Report
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Report extracted from scan • {finalReport.length} characters
                     </p>
                   </div>
                   <button
-                    onClick={() => setShowReportViewer(true)}
-                    disabled={!staticReport}
-                    className="px-6 py-3 bg-green-600 text-white text-sm font-display font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                    onClick={() => {
+                      const blob = new Blob([finalReport], { type: "text/markdown" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      const reportType = ('type' in assessment && assessment.type) ? assessment.type : "blackbox";
+                      a.download = `${reportType}_report_${assessmentId}_${new Date().getTime()}.md`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-display font-semibold"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
-                    View Report
+                    Download Report
                   </button>
                 </div>
               </div>
-            </>
+              <div className="p-6">
+                <div className="prose prose-slate dark:prose-invert max-w-none
+                  prose-headings:font-display prose-headings:font-bold
+                  prose-h1:text-3xl prose-h1:mb-4 prose-h1:pb-3 prose-h1:border-b prose-h1:border-border
+                  prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-4
+                  prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3
+                  prose-p:text-foreground prose-p:leading-relaxed
+                  prose-ul:list-disc prose-ul:pl-6
+                  prose-ol:list-decimal prose-ol:pl-6
+                  prose-li:text-foreground prose-li:my-1
+                  prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
+                  prose-pre:bg-muted prose-pre:border prose-pre:border-border
+                  prose-strong:text-foreground prose-strong:font-semibold
+                  prose-table:border-collapse prose-table:w-full
+                  prose-th:border prose-th:border-border prose-th:bg-muted prose-th:p-2
+                  prose-td:border prose-td:border-border prose-td:p-2
+                ">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {finalReport}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            </div>
           )}
+        </div>
+      ) : (
+        <>
+          {/* Logs Display for Completed Assessments */}
+          {assessment.status === "completed" && allLogs.length > 0 && (
+            <div className="space-y-4 mb-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-display font-bold text-foreground">
+                  📋 Scan Logs
+                </h2>
+                <span className="text-sm text-muted-foreground font-display">
+                  {allLogs.length} log entries (newest first)
+                </span>
+              </div>
+              <TerminalViewer logs={allLogs} isStreaming={false} />
+            </div>
+          )}
+          
+          {/* Saved Report Display for Completed Assessments */}
+          {assessment.status === "completed" && displayReport && (
+            <div className="rounded-2xl border-2 border-primary/30 bg-gradient-to-br from-card to-card/50 shadow-xl mb-6">
+              <div className="p-6 border-b border-border bg-gradient-to-r from-primary/5 to-primary/10">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <h3 className="text-2xl font-display font-bold text-foreground mb-2 flex items-center gap-2">
+                      <span className="text-3xl">📄</span>
+                      Security Assessment Report
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Report saved to database • {displayReport.length.toLocaleString()} characters
+                      <span className="ml-2 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-semibold">
+                        💾 Saved
+                      </span>
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!displayReport) return;
+                      const blob = new Blob([displayReport], { type: "text/markdown" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      const reportType = ('type' in assessment && assessment.type) ? assessment.type : "blackbox";
+                      a.download = `${reportType}_report_${assessmentId}_${new Date().getTime()}.md`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all shadow-md hover:shadow-lg font-display font-semibold"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download Report
+                  </button>
+                </div>
+              </div>
+              <div className="p-6 bg-card/50">
+                <div className="prose prose-slate dark:prose-invert max-w-none
+                  prose-headings:font-display prose-headings:font-bold
+                  prose-h1:text-3xl prose-h1:mb-4 prose-h1:pb-3 prose-h1:border-b prose-h1:border-border prose-h1:text-foreground
+                  prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-4 prose-h2:text-foreground
+                  prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3 prose-h3:text-foreground
+                  prose-p:text-foreground prose-p:leading-relaxed prose-p:my-4
+                  prose-ul:list-disc prose-ul:pl-6 prose-ul:my-4
+                  prose-ol:list-decimal prose-ol:pl-6 prose-ol:my-4
+                  prose-li:text-foreground prose-li:my-2
+                  prose-code:bg-muted prose-code:text-foreground prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono
+                  prose-pre:bg-muted prose-pre:border prose-pre:border-border prose-pre:rounded-lg prose-pre:p-4 prose-pre:overflow-x-auto
+                  prose-strong:text-foreground prose-strong:font-semibold
+                  prose-table:border-collapse prose-table:w-full prose-table:my-6
+                  prose-th:border prose-th:border-border prose-th:bg-muted prose-th:p-3 prose-th:text-left prose-th:font-semibold prose-th:text-foreground
+                  prose-td:border prose-td:border-border prose-td:p-3 prose-td:text-foreground
+                  prose-a:text-primary prose-a:underline prose-a:hover:text-primary/80
+                  prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-muted-foreground
+                  prose-hr:border-border prose-hr:my-8
+                ">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {displayReport}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {assessment.status === "completed" && !displayReport && (
+            <div className="rounded-xl border border-green-300 bg-green-50 dark:bg-green-950/20 p-6 mb-6">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex-1">
+                  <p className="text-lg text-green-800 dark:text-green-400 font-display font-semibold mb-2">
+                    ✅ Assessment Completed Successfully!
+                  </p>
+                    <p className="text-sm text-green-700 dark:text-green-300 font-display">
+                      The security scan has finished. The report will appear here once it&apos;s available.
+                    </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <FindingsList assessmentId={assessmentId} userId={userId} />
           <ResultsList assessmentId={assessmentId} userId={userId} />
         </>
