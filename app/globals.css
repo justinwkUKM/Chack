@@ -76,7 +76,11 @@
   }
 
   .animate-fade-in {
-    animation: fadeIn 0.3s ease-out;
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  .animate-fade-out {
+    animation: fadeOut 0.3s ease-in;
   }
 
   .animate-slide-up {
@@ -85,6 +89,10 @@
 
   .animate-scale-in {
     animation: scaleIn 0.25s ease-out;
+  }
+
+  .animate-slide-in-down {
+    animation: slideInDown 0.3s ease-out;
   }
 
   .glass-effect {
@@ -248,6 +256,15 @@
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 

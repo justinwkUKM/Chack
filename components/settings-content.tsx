@@ -142,8 +142,28 @@ export default function SettingsContent({
 
   if (user === undefined || org === undefined) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
-        <p className="text-sm text-gray-700 font-display">Loading...</p>
+      <div className="space-y-6 animate-fade-in">
+        {/* Tabs Skeleton */}
+        <div className="border-b border-gray-200">
+          <div className="flex gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-10 w-24 rounded bg-muted/60 animate-pulse" style={{ animationDelay: `${i * 0.1}s` }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Content Skeleton */}
+        <div className="rounded-2xl border border-gray-200 bg-white p-8 space-y-6">
+          <div className="h-7 w-48 rounded bg-muted/60 animate-pulse" />
+          <div className="space-y-5">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="space-y-2 animate-pulse" style={{ animationDelay: `${i * 0.1}s` }}>
+                <div className="h-4 w-20 rounded bg-muted/50" />
+                <div className="h-10 w-full rounded-lg bg-muted/40" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -424,7 +444,17 @@ export default function SettingsContent({
         <div className="rounded-2xl border border-gray-200 bg-white p-8">
           <h2 className="text-xl font-display font-semibold mb-6 text-black">Credit Transaction History</h2>
           {creditHistory === undefined ? (
-            <p className="text-sm text-gray-700 font-display">Loading...</p>
+            <div className="space-y-3 animate-fade-in">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4 animate-pulse" style={{ animationDelay: `${i * 0.1}s` }}>
+                  <div className="space-y-2 flex-1">
+                    <div className="h-4 w-48 rounded bg-muted/50" />
+                    <div className="h-3 w-32 rounded bg-muted/40" />
+                  </div>
+                  <div className="h-5 w-16 rounded bg-muted/50" />
+                </div>
+              ))}
+            </div>
           ) : creditHistory.length === 0 ? (
             <p className="text-sm text-gray-700 font-display">No transactions yet</p>
           ) : (

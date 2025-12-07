@@ -84,8 +84,33 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-6">
             {session && (
               <nav className="flex items-center gap-6 mr-4">
-                <Link href="/dashboard" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                <Link 
+                  href="/dashboard" 
+                  className={cn(
+                    "text-sm font-medium transition-colors relative",
+                    pathname === "/dashboard" 
+                      ? "text-foreground" 
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
                   Dashboard
+                  {pathname === "/dashboard" && (
+                    <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-gradient-to-r from-sky-500 to-cyan-500 rounded-full" />
+                  )}
+                </Link>
+                <Link 
+                  href="/dashboard" 
+                  className={cn(
+                    "text-sm font-medium transition-colors relative",
+                    pathname?.startsWith("/projects") 
+                      ? "text-foreground" 
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Projects
+                  {pathname?.startsWith("/projects") && (
+                    <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-gradient-to-r from-sky-500 to-cyan-500 rounded-full" />
+                  )}
                 </Link>
               </nav>
             )}
@@ -195,14 +220,36 @@ export function Navbar() {
                 </div>
                 <Link
                   href="/dashboard"
-                  className="block rounded-lg px-3 py-2 text-base font-medium text-foreground hover:bg-secondary"
+                  className={cn(
+                    "block rounded-lg px-3 py-2 text-base font-medium transition-colors",
+                    pathname === "/dashboard"
+                      ? "text-foreground bg-secondary"
+                      : "text-foreground hover:bg-secondary"
+                  )}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Dashboard
                 </Link>
                 <Link
+                  href="/dashboard"
+                  className={cn(
+                    "block rounded-lg px-3 py-2 text-base font-medium transition-colors",
+                    pathname?.startsWith("/projects")
+                      ? "text-foreground bg-secondary"
+                      : "text-foreground hover:bg-secondary"
+                  )}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Projects
+                </Link>
+                <Link
                   href="/settings"
-                  className="block rounded-lg px-3 py-2 text-base font-medium text-foreground hover:bg-secondary"
+                  className={cn(
+                    "block rounded-lg px-3 py-2 text-base font-medium transition-colors",
+                    pathname === "/settings"
+                      ? "text-foreground bg-secondary"
+                      : "text-foreground hover:bg-secondary"
+                  )}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Settings

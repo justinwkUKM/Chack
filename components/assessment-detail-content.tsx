@@ -8,8 +8,6 @@ import { api } from "@/convex/_generated/api";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
-import FindingsList from "./findings-list";
-import ResultsList from "./results-list";
 import TerminalViewer from "./terminal-viewer";
 import ReportViewer from "./report-viewer";
 import ConnectionStatus from "./connection-status";
@@ -391,9 +389,52 @@ export default function AssessmentDetailContent({
 
   if (assessment === undefined) {
     return (
-      <div className="rounded-2xl border border-border bg-card p-8 text-center">
-        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-border border-t-primary"></div>
-        <p className="text-sm text-muted-foreground mt-4 font-display">Loading...</p>
+      <div className="space-y-6 animate-fade-in">
+        {/* Header Skeleton */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 flex-1 min-w-0">
+            <div className="h-4 w-24 rounded bg-muted/60 animate-pulse" />
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="h-8 w-64 rounded bg-muted/60 animate-pulse" />
+              <div className="h-4 w-96 max-w-full rounded bg-muted/40 animate-pulse" />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="h-8 w-24 rounded-full bg-muted/60 animate-pulse" />
+            <div className="h-10 w-20 rounded-lg bg-muted/60 animate-pulse" />
+          </div>
+        </div>
+
+        {/* Info Cards Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="rounded-xl border border-border bg-card p-4 space-y-2 animate-pulse" style={{ animationDelay: `${i * 0.1}s` }}>
+              <div className="h-3 w-16 rounded bg-muted/50" />
+              <div className="h-5 w-24 rounded bg-muted/60" />
+            </div>
+          ))}
+        </div>
+
+        {/* Terminal Skeleton */}
+        <div className="rounded-xl border border-gray-200 bg-gray-900 overflow-hidden">
+          <div className="bg-gray-800 px-4 py-2 flex items-center justify-between border-b border-gray-700">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-gray-600" />
+              <div className="w-3 h-3 rounded-full bg-gray-600" />
+              <div className="w-3 h-3 rounded-full bg-gray-600" />
+            </div>
+            <div className="h-3 w-16 rounded bg-gray-700 animate-pulse" />
+          </div>
+          <div className="p-4 h-96 bg-gray-900 space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="space-y-1 animate-pulse" style={{ animationDelay: `${i * 0.1}s` }}>
+                <div className="h-3 w-32 rounded bg-gray-800" />
+                <div className="h-3 w-full rounded bg-gray-800" />
+                <div className="h-3 w-5/6 rounded bg-gray-800" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -766,7 +807,7 @@ export default function AssessmentDetailContent({
           )}
         </div>
       ) : (
-        <>
+        <div className="animate-fade-in">
           {/* Logs Display for Completed Assessments */}
           {assessment.status === "completed" && allLogs.length > 0 && (
             <div className="space-y-4 mb-6">
@@ -864,10 +905,7 @@ export default function AssessmentDetailContent({
               </div>
             </div>
           )}
-          
-          <FindingsList assessmentId={assessmentId} userId={userId} />
-          <ResultsList assessmentId={assessmentId} userId={userId} />
-        </>
+        </div>
       )}
     </div>
     </>

@@ -49,9 +49,38 @@ export default function ProjectDetailContent({
 
   if (project === undefined) {
     return (
-      <div className="rounded-2xl border border-border bg-card p-8 text-center">
-        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-border border-t-primary"></div>
-        <p className="text-sm text-muted-foreground mt-4 font-display">Loading...</p>
+      <div className="space-y-6 animate-fade-in">
+        {/* Header Skeleton */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 flex-1 min-w-0">
+            <div className="h-4 w-24 rounded bg-muted/60 animate-pulse" />
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="h-8 w-64 rounded bg-muted/60 animate-pulse" />
+              <div className="h-4 w-96 max-w-full rounded bg-muted/40 animate-pulse" />
+            </div>
+          </div>
+          <div className="h-10 w-20 rounded-lg bg-muted/60 animate-pulse flex-shrink-0" />
+        </div>
+
+        {/* Assessments List Skeleton */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="h-7 w-32 rounded bg-muted/60 animate-pulse" />
+            <div className="h-10 w-40 rounded-xl bg-muted/60 animate-pulse" />
+          </div>
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="rounded-xl border border-border bg-card p-5 space-y-3 animate-pulse" style={{ animationDelay: `${i * 0.1}s` }}>
+                <div className="h-6 w-48 rounded bg-muted/50" />
+                <div className="h-4 w-full rounded bg-muted/40" />
+                <div className="flex items-center gap-3 mt-3">
+                  <div className="h-5 w-16 rounded-full bg-muted/40" />
+                  <div className="h-5 w-20 rounded-full bg-muted/40" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

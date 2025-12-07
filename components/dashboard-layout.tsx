@@ -20,8 +20,52 @@ export default function DashboardLayout({ userId }: DashboardLayoutProps) {
 
   if (defaultOrg === undefined) {
     return (
-      <div className="flex-1 flex items-center justify-center min-h-screen bg-background">
-        <div className="text-sm text-muted-foreground">Loading...</div>
+      <div className="flex h-screen bg-background pt-16">
+        {/* Sidebar Skeleton */}
+        <aside className="w-64 shrink-0 border-r border-border bg-card/40">
+          <div className="p-4 space-y-4 animate-pulse">
+            <div className="h-8 w-32 rounded bg-muted/60" />
+            <div className="h-10 w-full rounded-lg bg-muted/50" />
+            <div className="space-y-2">
+              <div className="h-4 w-24 rounded bg-muted/40" />
+              <div className="h-8 w-full rounded bg-muted/50" />
+            </div>
+          </div>
+        </aside>
+        
+        {/* Main Content Skeleton */}
+        <main className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            <div className="px-6 py-8 bg-background">
+              <div className="mx-auto max-w-7xl space-y-6">
+                {/* Header Card Skeleton */}
+                <div className="rounded-2xl border border-primary/10 bg-gradient-to-br from-sky-500/10 via-cyan-500/5 to-emerald-500/5 p-6 space-y-4 animate-pulse">
+                  <div className="h-6 w-32 rounded-full bg-muted/60" />
+                  <div className="h-8 w-64 rounded bg-muted/60" />
+                  <div className="h-4 w-96 max-w-full rounded bg-muted/40" />
+                  <div className="grid grid-cols-3 gap-3 mt-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-20 rounded-xl bg-muted/50" />
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Projects Skeleton */}
+                <div className="space-y-4">
+                  <div className="h-7 w-32 rounded bg-muted/60 animate-pulse" />
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="rounded-xl border border-border bg-card p-5 space-y-3 animate-pulse" style={{ animationDelay: `${i * 0.1}s` }}>
+                        <div className="h-6 w-48 rounded bg-muted/50" />
+                        <div className="h-4 w-full rounded bg-muted/40" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
@@ -102,12 +146,40 @@ function StatPill({
   hint: string;
 }) {
   return (
-    <div className="rounded-xl border border-white/20 bg-white/60 px-4 py-3 shadow-sm backdrop-blur-sm dark:bg-white/10">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
-        {label}
+    <div className="group relative rounded-xl border border-white/20 bg-white/60 px-4 py-3 shadow-sm backdrop-blur-sm dark:bg-white/10 
+                    transition-all duration-300 ease-out
+                    hover:scale-110 hover:shadow-xl hover:shadow-sky-500/20 
+                    hover:border-sky-300/50 hover:bg-white/80 dark:hover:bg-white/20
+                    cursor-pointer
+                    before:absolute before:inset-0 before:rounded-xl before:bg-gradient-to-br before:from-sky-500/0 before:to-cyan-500/0 
+                    before:transition-all before:duration-300 
+                    hover:before:from-sky-500/10 hover:before:to-cyan-500/10
+                    overflow-hidden">
+      {/* Animated background glow */}
+      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-sky-500/0 to-cyan-500/0 
+                      group-hover:from-sky-500/20 group-hover:to-cyan-500/20 
+                      transition-all duration-500 blur-xl opacity-0 group-hover:opacity-100" />
+      
+      <div className="relative z-10">
+        <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold 
+                        transition-colors duration-300 group-hover:text-sky-700 dark:group-hover:text-sky-300">
+          {label}
+        </div>
+        <div className="text-xl font-bold text-foreground font-display 
+                        transition-all duration-300 group-hover:scale-105 group-hover:text-sky-600 dark:group-hover:text-sky-400">
+          {value}
+        </div>
+        <div className="text-[11px] text-muted-foreground 
+                        transition-colors duration-300 group-hover:text-sky-600/80 dark:group-hover:text-sky-400/80">
+          {hint}
+        </div>
       </div>
-      <div className="text-xl font-bold text-foreground font-display">{value}</div>
-      <div className="text-[11px] text-muted-foreground">{hint}</div>
+      
+      {/* Shine effect on hover */}
+      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full 
+                      transition-transform duration-1000 ease-in-out
+                      bg-gradient-to-r from-transparent via-white/20 to-transparent 
+                      skew-x-12" />
     </div>
   );
 }
