@@ -12,6 +12,7 @@ import type * as assessments from "../assessments.js";
 import type * as auth from "../auth.js";
 import type * as credits from "../credits.js";
 import type * as findings from "../findings.js";
+import type * as githubTokens from "../githubTokens.js";
 import type * as migrations from "../migrations.js";
 import type * as onboarding from "../onboarding.js";
 import type * as organizations from "../organizations.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   credits: typeof credits;
   findings: typeof findings;
+  githubTokens: typeof githubTokens;
   migrations: typeof migrations;
   onboarding: typeof onboarding;
   organizations: typeof organizations;

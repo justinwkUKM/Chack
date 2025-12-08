@@ -7,6 +7,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "next-auth/react";
 import { useToast } from "./toast";
+import { useSearchParams } from "next/navigation";
 
 interface SettingsContentProps {
   userId: string;
@@ -25,6 +26,7 @@ export default function SettingsContent({
   const user = useQuery(api.users.getById, { userId });
   const org = useQuery(api.organizations.get, { orgId });
   const creditHistory = useQuery(api.credits.getHistory, { orgId, limit: 20 });
+  const searchParams = useSearchParams();
 
   const updateUserName = useMutation(api.users.updateName);
   const updateOrgName = useMutation(api.organizations.updateName);
@@ -48,6 +50,20 @@ export default function SettingsContent({
       setOrgName('name' in org ? org.name || "" : "");
     }
   }, [org]);
+
+  useEffect(() => {
+    const error = searchParams?.get("githubAuthError");
+    const status = searchParams?.get("githubAuthStatus");
+    const message = searchParams?.get("githubAuthMessage");
+
+    if (error) {
+      showToast(error, "error");
+    } else if (status === "reauthorized") {
+      showToast(message || "GitHub token refreshed.", "success");
+    } else if (status === "connected") {
+      showToast(message || "GitHub authorization completed.", "success");
+    }
+  }, [searchParams, showToast]);
 
   const handleUpdateUserName = async (e: React.FormEvent) => {
     e.preventDefault();

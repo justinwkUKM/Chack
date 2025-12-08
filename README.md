@@ -588,6 +588,10 @@ GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 GITHUB_ID=your-github-client-id
 GITHUB_SECRET=your-github-client-secret
+TOKEN_ENCRYPTION_KEY=32+ character secret for encrypting stored GitHub tokens
+GITHUB_APP_ID=optional-github-app-id
+GITHUB_APP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+GITHUB_APP_INSTALLATION_ID=optional-installation-id
 
 # Convex
 NEXT_PUBLIC_CONVEX_URL=https://your-project.convex.cloud
@@ -603,6 +607,13 @@ npm run dev
 ```
 
 6. **Open** [http://localhost:3000](http://localhost:3000)
+
+### GitHub OAuth app registration
+
+- Configure your GitHub OAuth app to use the callback URL `https://<app-domain>/api/auth/github/callback`.
+- Enable scopes: `repo` and `read:user` so repository access is available during scans.
+- Start an authorization flow from the app by visiting `/api/auth/github/start?returnTo=/settings`.
+- Tokens are encrypted with `TOKEN_ENCRYPTION_KEY` before being stored; set the optional GitHub App variables to automatically mint installation tokens when available.
 
 ---
 

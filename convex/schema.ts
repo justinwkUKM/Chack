@@ -130,5 +130,16 @@ export default defineSchema({
   })
     .index("by_org", ["orgId"])
     .index("by_org_created", ["orgId", "createdAt"]),
+
+  // GitHub OAuth and App tokens stored securely per user
+  githubTokens: defineTable({
+    userId: v.string(),
+    tokenType: v.string(), // "oauth" | "installation"
+    encryptedToken: v.string(),
+    expiresAt: v.optional(v.number()),
+    installationId: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user_type", ["userId", "tokenType"]),
 });
 
