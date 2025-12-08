@@ -47,6 +47,17 @@ export const create = mutation({
     targetType: v.string(), // "web_app" | "api" | "mobile" | "network"
     targetUrl: v.optional(v.string()),
     gitRepoUrl: v.optional(v.string()), // For whitebox assessments
+    selectedRepoIds: v.optional(v.array(v.string())),
+    repoMetadata: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          cloneUrl: v.optional(v.string()),
+          name: v.optional(v.string()),
+          provider: v.optional(v.string()),
+        })
+      )
+    ),
     createdByUserId: v.string(),
   },
   handler: async (ctx, args) => {
@@ -57,6 +68,17 @@ export const create = mutation({
     }
 
     const orgId = project.orgId as string;
+
+    // Lightweight permission check: ensure the user is a member of the org
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_org", (q) => q.eq("orgId", orgId))
+      .filter((q) => q.eq(q.field("userId"), args.createdByUserId))
+      .first();
+
+    if (!membership) {
+      throw new Error("User does not have access to this organization");
+    }
 
     // Check if organization has enough credits
     const org = await ctx.db.get(orgId as any);
@@ -100,6 +122,8 @@ export const create = mutation({
       targetType: args.targetType,
       targetUrl: args.targetUrl,
       gitRepoUrl: args.gitRepoUrl,
+      selectedRepoIds: args.selectedRepoIds,
+      repoMetadata: args.repoMetadata,
       status: "running",
       createdByUserId: args.createdByUserId,
       startedAt: now,

@@ -63,6 +63,17 @@ export default defineSchema({
     targetType: v.string(), // "web_app" | "api" | "mobile" | "network"
     targetUrl: v.optional(v.string()), // For blackbox: target URL
     gitRepoUrl: v.optional(v.string()), // For whitebox: git repository URL
+    selectedRepoIds: v.optional(v.array(v.string())), // Selected repository identifiers
+    repoMetadata: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          cloneUrl: v.optional(v.string()),
+          name: v.optional(v.string()),
+          provider: v.optional(v.string()),
+        })
+      )
+    ), // Repository metadata for downstream jobs
     status: v.string(), // "pending" | "running" | "completed" | "failed"
     sessionId: v.optional(v.string()), // Backend session ID for this assessment run
     createdByUserId: v.string(),
