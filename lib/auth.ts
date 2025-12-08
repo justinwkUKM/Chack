@@ -50,6 +50,10 @@ export const authOptions: NextAuthOptions = {
       if (token.sub && session.user) {
         session.user.id = token.sub;
         session.user.provider = token.provider as string;
+
+        if (token.accessToken) {
+          session.accessToken = token.accessToken as string;
+        }
         
         // Fetch latest user data from Convex to get updated name
         try {

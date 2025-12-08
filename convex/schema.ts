@@ -63,6 +63,7 @@ export default defineSchema({
     targetType: v.string(), // "web_app" | "api" | "mobile" | "network"
     targetUrl: v.optional(v.string()), // For blackbox: target URL
     gitRepoUrl: v.optional(v.string()), // For whitebox: git repository URL
+    githubRepoIds: v.optional(v.array(v.number())), // Selected GitHub repositories
     status: v.string(), // "pending" | "running" | "completed" | "failed"
     sessionId: v.optional(v.string()), // Backend session ID for this assessment run
     createdByUserId: v.string(),

@@ -47,6 +47,7 @@ export const create = mutation({
     targetType: v.string(), // "web_app" | "api" | "mobile" | "network"
     targetUrl: v.optional(v.string()),
     gitRepoUrl: v.optional(v.string()), // For whitebox assessments
+    githubRepoIds: v.optional(v.array(v.number())), // Selected GitHub repositories
     createdByUserId: v.string(),
   },
   handler: async (ctx, args) => {
@@ -100,6 +101,7 @@ export const create = mutation({
       targetType: args.targetType,
       targetUrl: args.targetUrl,
       gitRepoUrl: args.gitRepoUrl,
+      githubRepoIds: args.githubRepoIds,
       status: "running",
       createdByUserId: args.createdByUserId,
       startedAt: now,

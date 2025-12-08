@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "next-auth/react";
@@ -12,6 +12,17 @@ import { useToast } from "./toast";
 
 interface AssessmentsListProps {
   projectId: string;
+}
+
+interface GitHubRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  permissions: {
+    admin: boolean;
+    push: boolean;
+    pull: boolean;
+  };
 }
 
 export default function AssessmentsList({ projectId }: AssessmentsListProps) {
@@ -27,6 +38,12 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [detectedType, setDetectedType] = useState<"blackbox" | "whitebox" | null>(null);
+  const [githubRepos, setGithubRepos] = useState<GitHubRepo[]>([]);
+  const [selectedRepoIds, setSelectedRepoIds] = useState<number[]>([]);
+  const [repoSearch, setRepoSearch] = useState("");
+  const [isLoadingRepos, setIsLoadingRepos] = useState(false);
+  const [repoError, setRepoError] = useState<string | null>(null);
+  const [hasFetchedRepos, setHasFetchedRepos] = useState(false);
 
   const assessments = useQuery(api.assessments.list, { projectId }) ?? [];
   const createAssessment = useMutation(api.assessments.create);
@@ -133,6 +150,67 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
     return Object.keys(newErrors).length === 0;
   };
 
+  const isWhitebox = useMemo(
+    () =>
+      assessmentType === "whitebox" ||
+      (assessmentType === "auto" && detectedType === "whitebox"),
+    [assessmentType, detectedType]
+  );
+
+  useEffect(() => {
+    if (!isWhitebox) {
+      setSelectedRepoIds([]);
+    }
+  }, [isWhitebox]);
+
+  const fetchGithubRepos = async () => {
+    setIsLoadingRepos(true);
+    setRepoError(null);
+
+    try {
+      const response = await fetch("/api/github/repos");
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Unable to fetch GitHub repositories");
+      }
+
+      const data = await response.json();
+      setGithubRepos(data.repos || []);
+      setHasFetchedRepos(true);
+    } catch (error: any) {
+      console.error("Failed to fetch GitHub repos:", error);
+      setRepoError(error.message || "Unable to fetch GitHub repositories");
+    } finally {
+      setIsLoadingRepos(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showCreateForm && isWhitebox && !hasFetchedRepos && !isLoadingRepos) {
+      fetchGithubRepos();
+    }
+  }, [showCreateForm, isWhitebox, hasFetchedRepos, isLoadingRepos]);
+
+  const filteredRepos = useMemo(() => {
+    if (!repoSearch.trim()) return githubRepos;
+
+    const term = repoSearch.toLowerCase();
+    return githubRepos.filter(
+      (repo) =>
+        repo.name.toLowerCase().includes(term) ||
+        repo.full_name.toLowerCase().includes(term)
+    );
+  }, [repoSearch, githubRepos]);
+
+  const toggleRepoSelection = (repoId: number) => {
+    setSelectedRepoIds((prev) =>
+      prev.includes(repoId)
+        ? prev.filter((id) => id !== repoId)
+        : [...prev, repoId]
+    );
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -172,6 +250,7 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
         targetType,
         targetUrl: finalType === "blackbox" ? normalizedUrl : undefined,
         gitRepoUrl: finalType === "whitebox" ? normalizedUrl : undefined,
+        githubRepoIds: finalType === "whitebox" && selectedRepoIds.length > 0 ? selectedRepoIds : undefined,
         createdByUserId: session.user.id,
       });
 
@@ -182,6 +261,11 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
       setTargetUrl("");
       setDetectedType(null);
       setAssessmentType("auto");
+      setGithubRepos([]);
+      setSelectedRepoIds([]);
+      setRepoSearch("");
+      setHasFetchedRepos(false);
+      setRepoError(null);
       setErrors({});
       setShowCreateForm(false);
 
@@ -393,6 +477,75 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
               </p>
             )}
           </div>
+
+          {isWhitebox && (
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1 font-display">
+                    Select GitHub repositories (optional)
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    We will save these selections with your assessment draft to streamline whitebox scans.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchGithubRepos}
+                  disabled={isLoadingRepos}
+                  className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:border-primary/50 hover:text-primary transition-colors disabled:opacity-60"
+                >
+                  {isLoadingRepos ? "Refreshing..." : "Refresh repos"}
+                </button>
+              </div>
+
+              {repoError && (
+                <p className="text-xs text-red-500 font-display">{repoError}</p>
+              )}
+
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={repoSearch}
+                  onChange={(e) => setRepoSearch(e.target.value)}
+                  placeholder="Search repositories by name"
+                  className="w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
+                />
+
+                <div className="max-h-48 overflow-y-auto rounded-xl border border-border bg-card divide-y divide-border/60">
+                  {isLoadingRepos ? (
+                    <p className="px-4 py-3 text-sm text-muted-foreground">Loading repositories...</p>
+                  ) : filteredRepos.length === 0 ? (
+                    <p className="px-4 py-3 text-sm text-muted-foreground">
+                      {hasFetchedRepos
+                        ? "No repositories found. Try adjusting your search."
+                        : "Connect with GitHub to load your repositories."}
+                    </p>
+                  ) : (
+                    filteredRepos.map((repo) => (
+                      <label
+                        key={repo.id}
+                        className="flex items-start gap-3 px-4 py-3 hover:bg-secondary/60 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedRepoIds.includes(repo.id)}
+                          onChange={() => toggleRepoSelection(repo.id)}
+                          className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{repo.full_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Permissions: {repo.permissions.admin ? "admin" : repo.permissions.push ? "write" : "read"}
+                          </p>
+                        </div>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <button
             type="submit"
