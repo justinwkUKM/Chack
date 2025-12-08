@@ -1,8 +1,29 @@
 // convex/githubTokens.ts
 
-import { mutation, query } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { decryptToken } from "./utils/encryption";
 
+async function logAuthEvent(
+  ctx: any,
+  {
+    userId,
+    event,
+    details,
+    scopes,
+  }: { userId: string; event: string; details?: string; scopes?: string[] }
+) {
+  await ctx.db.insert("authEvents", {
+    userId,
+    provider: "github",
+    event,
+    scopes,
+    details,
+    createdAt: Date.now(),
+  });
+}
+
+// Save token to githubTokens table (for OAuth and installation tokens)
 export const saveToken = mutation({
   args: {
     userId: v.string(),
@@ -42,16 +63,40 @@ export const saveToken = mutation({
   },
 });
 
+// Get token from githubTokens table
 export const getToken = query({
-  args: { userId: v.string(), tokenType: v.string() },
-  async handler(ctx, { userId, tokenType }) {
-    return await ctx.db
-      .query("githubTokens")
-      .withIndex("by_user_type", (q) => q.eq("userId", userId).eq("tokenType", tokenType))
+  args: { userId: v.string(), tokenType: v.optional(v.string()) },
+  async handler(ctx, args) {
+    // If tokenType is provided, get from githubTokens table
+    if (args.tokenType) {
+      return await ctx.db
+        .query("githubTokens")
+        .withIndex("by_user_type", (q) => q.eq("userId", args.userId).eq("tokenType", args.tokenType))
+        .first();
+    }
+
+    // Otherwise, get from users table (for backward compatibility)
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_user_id", (q) => q.eq("id", args.userId))
       .first();
+
+    if (!user || !user.githubAccessToken) {
+      return null;
+    }
+
+    return {
+      accessToken: decryptToken(user.githubAccessToken),
+      tokenType: user.githubTokenType,
+      expiresAt: user.githubTokenExpiresAt,
+      scopes: user.githubScopes ?? [],
+      username: user.githubUsername,
+      accountId: user.githubAccountId,
+    };
   },
 });
 
+// Delete token from githubTokens table
 export const deleteToken = mutation({
   args: { userId: v.string(), tokenType: v.string() },
   async handler(ctx, { userId, tokenType }) {
@@ -62,6 +107,45 @@ export const deleteToken = mutation({
 
     if (existing) {
       await ctx.db.delete(existing._id);
+      await logAuthEvent(ctx, {
+        userId,
+        event: "disconnect",
+        details: `GitHub ${tokenType} token deleted`,
+      });
+    }
+  },
+});
+
+// Revoke token from users table (for backward compatibility)
+export const revokeToken = mutation({
+  args: { userId: v.string(), reason: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_user_id", (q) => q.eq("id", args.userId))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const now = Date.now();
+
+    await ctx.db.patch(user._id, {
+      githubAccessToken: undefined,
+      githubScopes: undefined,
+      githubTokenType: undefined,
+      githubTokenExpiresAt: undefined,
+      updatedAt: now,
+    });
+
+    if (user.githubAccessToken) {
+      await logAuthEvent(ctx, {
+        userId: args.userId,
+        event: "disconnect",
+        scopes: user.githubScopes ?? [],
+        details: args.reason || "GitHub account disconnected",
+      });
     }
   },
 });
