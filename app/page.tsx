@@ -5,14 +5,79 @@ import { redirect } from "next/navigation";
 import { checkOnboarding } from "@/app/actions/onboarding";
 import { CyberGrid } from "@/components/cyber-grid";
 import { TerminalTyper } from "@/components/terminal-typer";
+import type { Metadata } from "next";
+
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "https://chack.dev";
+
+export const metadata: Metadata = {
+  title: "CHACK - Autonomous AI Pentest Agent | Find Vulnerabilities Before Attackers Do",
+  description: "CHACK finds what attackers will, before they do. Paste your URL and get enterprise-grade security reports in minutes. Autonomous blackbox and whitebox security assessments with OWASP Top 10 coverage.",
+  openGraph: {
+    title: "CHACK - Autonomous AI Pentest Agent",
+    description: "Get enterprise-grade security reports in minutes. CHACK's autonomous agent performs comprehensive security assessments with OWASP Top 10 coverage.",
+    url: siteUrl,
+    siteName: "CHACK",
+    images: [
+      {
+        url: `${siteUrl}/opengraph-image`,
+        width: 1200,
+        height: 630,
+        alt: "CHACK - Autonomous AI Pentest Agent",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CHACK - Autonomous AI Pentest Agent",
+    description: "Get enterprise-grade security reports in minutes. Reduce pentest costs by 99.5%.",
+    images: [`${siteUrl}/opengraph-image`],
+  },
+  alternates: {
+    canonical: siteUrl,
+  },
+};
 
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
 
   if (!session) {
+    const structuredData = {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "CHACK",
+      "applicationCategory": "SecurityApplication",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "5",
+        "ratingCount": "1",
+      },
+      "description": "Autonomous AI pentest agent that performs both blackbox and whitebox security assessments. Get enterprise-grade security reports in minutes.",
+      "featureList": [
+        "Blackbox security testing",
+        "Whitebox security testing",
+        "OWASP Top 10 coverage",
+        "Automated vulnerability scanning",
+        "Real-time security reports",
+        "GitHub repository integration",
+      ],
+    };
+
     return (
-      <main className="bg-background px-4 py-12 animate-fade-in text-foreground relative overflow-hidden min-h-screen">
-        <CyberGrid />
+      <>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
+        <main className="bg-background px-4 py-12 animate-fade-in text-foreground relative overflow-hidden min-h-screen">
+          <CyberGrid />
         
         {/* Subtle animated background gradient overlay */}
         <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
@@ -357,6 +422,7 @@ export default async function HomePage() {
           </div>
         </div>
       </main>
+      </>
     );
   }
 

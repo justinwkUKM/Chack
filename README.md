@@ -599,6 +599,10 @@ NEXT_PUBLIC_CONVEX_URL=https://your-project.convex.cloud
 # Nassa Agent
 NASSA_AGENT_URL=https://chack.ngrok.app
 NASSA_APP_NAME=Nassa
+
+# SEO Configuration (Optional but recommended)
+NEXT_PUBLIC_APP_URL=https://chack.dev
+GOOGLE_SITE_VERIFICATION=your-google-verification-code
 ```
 
 5. **Run development server:**
