@@ -43,6 +43,16 @@ export const authOptions: NextAuthOptions = {
       if (account) {
         token.accessToken = account.access_token;
         token.provider = account.provider;
+        token.tokenType = account.token_type;
+        token.tokenExpiresAt = account.expires_at
+          ? account.expires_at * 1000
+          : undefined;
+        token.githubAccountId = account.providerAccountId;
+        token.githubUsername =
+          (account as any).login || (account as any).username || undefined;
+        token.githubScopes = typeof account.scope === "string"
+          ? account.scope.split(/[,\s]+/).filter(Boolean)
+          : account.scope;
       }
       return token;
     },
@@ -50,10 +60,10 @@ export const authOptions: NextAuthOptions = {
       if (token.sub && session.user) {
         session.user.id = token.sub;
         session.user.provider = token.provider as string;
-        
+
         // Fetch latest user data from Convex to get updated name
+        const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
         try {
-          const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
           if (convexUrl) {
             const convex = new ConvexHttpClient(convexUrl);
             const user = await convex.query(api.users.getById, { userId: token.sub });
@@ -67,6 +77,36 @@ export const authOptions: NextAuthOptions = {
         } catch (error) {
           // If Convex query fails, use session data as fallback
           console.error("Failed to fetch user from Convex in session callback:", error);
+        }
+
+        // Persist GitHub token metadata for downstream API calls
+        if (token.provider === "github" && token.accessToken) {
+          try {
+            const scopes = Array.isArray(token.githubScopes)
+              ? (token.githubScopes as string[])
+              : typeof token.githubScopes === "string"
+                ? token.githubScopes.split(/[,\s]+/).filter(Boolean)
+                : [];
+
+            if (convexUrl) {
+              const convex = new ConvexHttpClient(convexUrl);
+              await convex.mutation(api.users.upsert, {
+                id: token.sub,
+                email: session.user.email || "",
+                name: session.user.name || undefined,
+                image: session.user.image || undefined,
+                provider: "github",
+                githubAccountId: token.githubAccountId as string | undefined,
+                githubUsername: token.githubUsername as string | undefined,
+                githubScopes: scopes,
+                githubAccessToken: token.accessToken as string,
+                githubTokenType: token.tokenType as string | undefined,
+                githubTokenExpiresAt: token.tokenExpiresAt as number | undefined,
+              });
+            }
+          } catch (error) {
+            console.error("Failed to persist GitHub token metadata:", error);
+          }
         }
       }
       return session;

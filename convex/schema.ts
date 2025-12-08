@@ -11,6 +11,12 @@ export default defineSchema({
     name: v.string(),
     image: v.string(),
     provider: v.string(), // "google" | "github"
+    githubAccountId: v.optional(v.string()),
+    githubUsername: v.optional(v.string()),
+    githubScopes: v.optional(v.array(v.string())),
+    githubAccessToken: v.optional(v.string()),
+    githubTokenType: v.optional(v.string()),
+    githubTokenExpiresAt: v.optional(v.number()),
     theme: v.optional(v.string()), // "light" | "dark"
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -130,5 +136,14 @@ export default defineSchema({
   })
     .index("by_org", ["orgId"])
     .index("by_org_created", ["orgId", "createdAt"]),
+
+  authEvents: defineTable({
+    userId: v.string(),
+    provider: v.string(),
+    event: v.string(), // connect | disconnect | scope_change
+    scopes: v.optional(v.array(v.string())),
+    details: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_user", ["userId"]),
 });
 
