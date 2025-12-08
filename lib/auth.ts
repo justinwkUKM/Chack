@@ -69,8 +69,17 @@ export const authOptions: NextAuthOptions = {
         const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
         try {
           if (convexUrl) {
-            const convex = new ConvexHttpClient(convexUrl);
-            const user = await convex.query(api.users.getById, { userId: token.sub });
+            // Use Promise.race to add a timeout
+            const queryPromise = (async () => {
+              const convex = new ConvexHttpClient(convexUrl);
+              return await convex.query(api.users.getById, { userId: token.sub });
+            })();
+            
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error("Convex query timeout")), 5000)
+            );
+            
+            const user = await Promise.race([queryPromise, timeoutPromise]) as any;
             if (user) {
               // Update session with latest data from Convex
               session.user.name = user.name || session.user.name;
@@ -80,7 +89,10 @@ export const authOptions: NextAuthOptions = {
           }
         } catch (error) {
           // If Convex query fails, use session data as fallback
-          console.error("Failed to fetch user from Convex in session callback:", error);
+          // Only log if it's not a timeout (to reduce noise)
+          if (error instanceof Error && !error.message.includes("timeout") && !error.message.includes("Connect Timeout")) {
+            console.error("Failed to fetch user from Convex in session callback:", error);
+          }
         }
 
         // Persist GitHub token metadata for downstream API calls
@@ -93,23 +105,36 @@ export const authOptions: NextAuthOptions = {
                 : [];
 
             if (convexUrl) {
-              const convex = new ConvexHttpClient(convexUrl);
-              await convex.mutation(api.users.upsert, {
-                id: token.sub,
-                email: session.user.email || "",
-                name: session.user.name || undefined,
-                image: session.user.image || undefined,
-                provider: "github",
-                githubAccountId: token.githubAccountId as string | undefined,
-                githubUsername: token.githubUsername as string | undefined,
-                githubScopes: scopes,
-                githubAccessToken: token.accessToken as string,
-                githubTokenType: token.tokenType as string | undefined,
-                githubTokenExpiresAt: token.tokenExpiresAt as number | undefined,
-              });
+              // Use Promise.race to add a timeout
+              const mutationPromise = (async () => {
+                const convex = new ConvexHttpClient(convexUrl);
+                return await convex.mutation(api.users.upsert, {
+                  id: token.sub,
+                  email: session.user.email || "",
+                  name: session.user.name || undefined,
+                  image: session.user.image || undefined,
+                  provider: "github",
+                  githubAccountId: token.githubAccountId as string | undefined,
+                  githubUsername: token.githubUsername as string | undefined,
+                  githubScopes: scopes,
+                  githubAccessToken: token.accessToken as string,
+                  githubTokenType: token.tokenType as string | undefined,
+                  githubTokenExpiresAt: token.tokenExpiresAt as number | undefined,
+                });
+              })();
+              
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error("Convex mutation timeout")), 5000)
+              );
+              
+              await Promise.race([mutationPromise, timeoutPromise]);
             }
           } catch (error) {
-            console.error("Failed to persist GitHub token metadata:", error);
+            // Only log if it's not a timeout (to reduce noise)
+            // The token will be saved via the OAuth callback route anyway
+            if (error instanceof Error && !error.message.includes("timeout") && !error.message.includes("Connect Timeout")) {
+              console.error("Failed to persist GitHub token metadata:", error);
+            }
           }
         }
       }

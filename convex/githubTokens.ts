@@ -2,7 +2,6 @@
 
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { decryptToken } from "./utils/encryption";
 
 async function logAuthEvent(
   ctx: any,
@@ -71,11 +70,12 @@ export const getToken = query({
     if (args.tokenType) {
       return await ctx.db
         .query("githubTokens")
-        .withIndex("by_user_type", (q) => q.eq("userId", args.userId).eq("tokenType", args.tokenType))
+        .withIndex("by_user_type", (q) => q.eq("userId", args.userId).eq("tokenType", args.tokenType as string))
         .first();
     }
 
     // Otherwise, get from users table (for backward compatibility)
+    // Note: We return the encrypted token - decryption happens in API routes
     const user = await ctx.db
       .query("users")
       .withIndex("by_user_id", (q) => q.eq("id", args.userId))
@@ -85,8 +85,9 @@ export const getToken = query({
       return null;
     }
 
+    // Return token metadata (encrypted token should be decrypted in API routes)
     return {
-      accessToken: decryptToken(user.githubAccessToken),
+      encryptedToken: user.githubAccessToken,
       tokenType: user.githubTokenType,
       expiresAt: user.githubTokenExpiresAt,
       scopes: user.githubScopes ?? [],

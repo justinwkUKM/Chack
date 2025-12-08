@@ -2,7 +2,6 @@
 
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { encryptToken } from "./utils/encryption";
 
 async function logAuthEvent(
   ctx: any,
@@ -83,9 +82,7 @@ export const upsert = mutation({
         githubAccountId: args.githubAccountId ?? existing.githubAccountId,
         githubUsername: args.githubUsername ?? existing.githubUsername,
         githubScopes: args.githubScopes ?? existing.githubScopes,
-        githubAccessToken: args.githubAccessToken
-          ? encryptToken(args.githubAccessToken)
-          : existing.githubAccessToken,
+        githubAccessToken: args.githubAccessToken ?? existing.githubAccessToken,
         githubTokenType: args.githubTokenType ?? existing.githubTokenType,
         githubTokenExpiresAt:
           args.githubTokenExpiresAt ?? existing.githubTokenExpiresAt,
@@ -123,9 +120,7 @@ export const upsert = mutation({
         githubAccountId: args.githubAccountId,
         githubUsername: args.githubUsername,
         githubScopes: args.githubScopes,
-        githubAccessToken: args.githubAccessToken
-          ? encryptToken(args.githubAccessToken)
-          : undefined,
+        githubAccessToken: args.githubAccessToken,
         githubTokenType: args.githubTokenType,
         githubTokenExpiresAt: args.githubTokenExpiresAt,
         createdAt: now,

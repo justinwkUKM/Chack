@@ -15,13 +15,33 @@ import { fetchMutation } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 
 function redirectWithError(message: string, returnTo?: string) {
-  const destination = new URL(returnTo || "/settings", process.env.NEXTAUTH_URL || "http://localhost:3000");
+  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+  let destination: URL;
+  
+  if (returnTo && returnTo.startsWith("http")) {
+    destination = new URL(returnTo);
+  } else if (returnTo && returnTo.startsWith("/")) {
+    destination = new URL(returnTo, baseUrl);
+  } else {
+    destination = new URL(returnTo || "/settings", baseUrl);
+  }
+  
   destination.searchParams.set("githubAuthError", message);
   return NextResponse.redirect(destination.toString());
 }
 
 function redirectWithSuccess(returnTo?: string, status: "connected" | "reauthorized" = "connected", message?: string) {
-  const destination = new URL(returnTo || "/settings", process.env.NEXTAUTH_URL || "http://localhost:3000");
+  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+  let destination: URL;
+  
+  if (returnTo && returnTo.startsWith("http")) {
+    destination = new URL(returnTo);
+  } else if (returnTo && returnTo.startsWith("/")) {
+    destination = new URL(returnTo, baseUrl);
+  } else {
+    destination = new URL(returnTo || "/settings", baseUrl);
+  }
+  
   destination.searchParams.set("githubAuthStatus", status);
   if (message) {
     destination.searchParams.set("githubAuthMessage", message);
@@ -39,7 +59,8 @@ export async function GET(request: Request) {
     return redirectWithError(error);
   }
 
-  const stateCookie = cookies().get("github_oauth_state");
+  const cookieStore = await cookies();
+  const stateCookie = cookieStore.get("github_oauth_state");
   const { state: savedState, returnTo, reauthReason } = getReturnPathFromState(stateCookie?.value ?? null);
 
   if (!state || !savedState || state !== savedState) {
@@ -92,7 +113,7 @@ export async function GET(request: Request) {
       return redirectWithError("GitHub App installation token refresh failed.", returnTo);
     }
 
-    cookies().delete("github_oauth_state");
+    cookieStore.delete("github_oauth_state");
     return redirectWithSuccess(returnTo, reauthReason ? "reauthorized" : "connected", reauthReason);
   } catch (callbackError) {
     console.error("GitHub OAuth callback failed", callbackError);

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { decryptToken } from "@/lib/githubAuth";
 
 interface GitHubRepo {
   id: number;
@@ -27,7 +30,7 @@ async function fetchGitHubRepos(accessToken: string): Promise<GitHubRepo[]> {
 
   while (true) {
     const response = await fetch(
-      `https://api.github.com/user/repos?visibility=private&per_page=100&page=${page}`,
+      `https://api.github.com/user/repos?per_page=100&page=${page}&sort=updated&affiliation=owner,collaborator`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -77,21 +80,65 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!session.accessToken || session.user.provider !== "github") {
+  // Only allow GitHub users
+  if (session.user.provider !== "github") {
     return NextResponse.json(
-      { error: "GitHub account with an active token is required." },
-      { status: 400 }
+      { error: "GitHub repository access is only available for users who signed in with GitHub." },
+      { status: 403 }
     );
   }
 
-  const cached = repoCache.get(session.user.id);
-  const now = Date.now();
-  if (cached && cached.expiresAt > now) {
-    return NextResponse.json({ repos: normalizeRepos(cached.repos), cached: true });
-  }
-
   try {
-    const repos = await fetchGitHubRepos(session.accessToken);
+    // Fetch token from githubTokens table
+    const tokenData = await fetchQuery(api.githubTokens.getToken, {
+      userId: session.user.id,
+      tokenType: "oauth",
+    });
+
+    if (!tokenData) {
+      return NextResponse.json(
+        { error: "No GitHub token found. Please connect your GitHub account first." },
+        { status: 401 }
+      );
+    }
+
+    // Check if token is expired
+    if (tokenData.expiresAt && tokenData.expiresAt < Date.now()) {
+      return NextResponse.json(
+        { error: "GitHub token has expired. Please reconnect your GitHub account." },
+        { status: 401 }
+      );
+    }
+
+    // Decrypt token
+    let tokenInfo: any;
+    try {
+      tokenInfo = decryptToken(tokenData.encryptedToken);
+    } catch (error) {
+      console.error("Failed to decrypt GitHub token:", error);
+      return NextResponse.json(
+        { error: "Failed to decrypt GitHub token." },
+        { status: 500 }
+      );
+    }
+
+    const accessToken = tokenInfo.accessToken;
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: "Invalid GitHub token." },
+        { status: 401 }
+      );
+    }
+
+    // Check cache
+    const cached = repoCache.get(session.user.id);
+    const now = Date.now();
+    if (cached && cached.expiresAt > now) {
+      return NextResponse.json({ repos: normalizeRepos(cached.repos), cached: true });
+    }
+
+    // Fetch repos from GitHub
+    const repos = await fetchGitHubRepos(accessToken);
     repoCache.set(session.user.id, {
       expiresAt: now + CACHE_TTL_MS,
       repos,

@@ -17,10 +17,23 @@ const TERMINAL_LINES = [
 ];
 
 export function TerminalTyper({ className }: { className?: string }) {
-  const [lines, setLines] = useState<Array<{ text: string; color?: string }>>([]);
+  const [lines, setLines] = useState<Array<{ text: string; color?: string; timestamp?: string }>>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentText, setCurrentText] = useState("");
+  const [currentTimestamp, setCurrentTimestamp] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Only set timestamp on client side to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+    const updateTimestamp = () => {
+      setCurrentTimestamp(new Date().toLocaleTimeString([], { hour12: false }));
+    };
+    updateTimestamp();
+    const interval = setInterval(updateTimestamp, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (currentIndex >= TERMINAL_LINES.length) {
@@ -43,7 +56,8 @@ export function TerminalTyper({ className }: { className?: string }) {
       } else {
         clearInterval(typeInterval);
         setTimeout(() => {
-          setLines((prev) => [...prev, targetLine]);
+          const timestamp = new Date().toLocaleTimeString([], { hour12: false });
+          setLines((prev) => [...prev, { ...targetLine, timestamp }]);
           setCurrentText("");
           setCurrentIndex((prev) => prev + 1);
         }, targetLine.delay / 4); // Brief pause before committing the line
@@ -82,12 +96,16 @@ export function TerminalTyper({ className }: { className?: string }) {
       <div ref={containerRef} className="flex-1 overflow-y-auto space-y-1.5 scrollbar-hide pb-2">
         {lines.map((line, i) => (
           <div key={i} className={cn("break-words", line.color || "text-sky-400/90")}>
-            <span className="opacity-50 mr-2 text-[10px] align-middle">{new Date().toLocaleTimeString([], {hour12: false})}</span>
+            {mounted && line.timestamp && (
+              <span className="opacity-50 mr-2 text-[10px] align-middle">{line.timestamp}</span>
+            )}
             {line.text}
           </div>
         ))}
         <div className="text-sky-400/90 break-words">
-          <span className="opacity-50 mr-2 text-[10px] align-middle">{new Date().toLocaleTimeString([], {hour12: false})}</span>
+          {mounted && currentTimestamp && (
+            <span className="opacity-50 mr-2 text-[10px] align-middle">{currentTimestamp}</span>
+          )}
           {currentText}
           <span className="inline-block w-1.5 h-3.5 bg-sky-400/90 ml-1 animate-pulse align-middle" />
         </div>

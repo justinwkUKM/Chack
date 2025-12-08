@@ -2,12 +2,12 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "./toast";
 
 interface AssessmentsListProps {
@@ -28,6 +28,7 @@ interface GitHubRepo {
 export default function AssessmentsList({ projectId }: AssessmentsListProps) {
   const { data: session } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { showToast, error: showError, success: showSuccess, ToastComponent } = useToast();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [assessmentName, setAssessmentName] = useState("");
@@ -44,6 +45,16 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [repoError, setRepoError] = useState<string | null>(null);
   const [hasFetchedRepos, setHasFetchedRepos] = useState(false);
+  const [githubAccount, setGithubAccount] = useState<{
+    connected: boolean;
+    username?: string;
+    avatar?: string | null;
+  }>({ connected: false });
+  const [isCheckingGithub, setIsCheckingGithub] = useState(false);
+  const [isConnectingGithub, setIsConnectingGithub] = useState(false);
+  const [githubError, setGithubError] = useState<string | null>(null);
+  const [repoOptions, setRepoOptions] = useState<string[]>([]);
+  const [selectedRepo, setSelectedRepo] = useState<string>("");
 
   const assessments = useQuery(api.assessments.list, { projectId }) ?? [];
   const createAssessment = useMutation(api.assessments.create);
@@ -108,6 +119,173 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
     }
   };
 
+  const refreshGithubStatus = useCallback(async (autoFetchRepos = false) => {
+    // Only check GitHub status if user signed in with GitHub
+    if (session?.user?.provider !== "github") {
+      setGithubAccount({ connected: false });
+      setRepoOptions([]);
+      setSelectedRepo("");
+      return;
+    }
+
+    setIsCheckingGithub(true);
+    try {
+      const response = await fetch("/api/auth/github/status");
+
+      if (!response.ok) {
+        throw new Error("Unable to check GitHub connection status.");
+      }
+
+      const data = await response.json();
+
+      const isConnected = Boolean(data.connected);
+      setGithubAccount({
+        connected: isConnected,
+        username: data.username,
+        avatar: data.avatar,
+      });
+
+      if (typeof window !== "undefined") {
+        if (isConnected) {
+          // Always try to fetch actual repos from GitHub when connected
+          // Don't show fake/default repos
+          try {
+            const reposResponse = await fetch("/api/github/repos");
+            if (reposResponse.ok) {
+              const reposData = await reposResponse.json();
+              if (reposData.repos && reposData.repos.length > 0) {
+                setGithubRepos(reposData.repos);
+                setHasFetchedRepos(true);
+                // Update repoOptions for the dropdown with actual repos
+                const repoUrls = reposData.repos.map((repo: GitHubRepo) => 
+                  `https://github.com/${repo.full_name}`
+                );
+                setRepoOptions(repoUrls);
+                window.localStorage.setItem("githubRepoCache", JSON.stringify(repoUrls));
+              } else {
+                // No repos found - clear any cached fake repos
+                setRepoOptions([]);
+                setGithubRepos([]);
+                window.localStorage.removeItem("githubRepoCache");
+              }
+            } else {
+              // API call failed - clear fake repos
+              setRepoOptions([]);
+              setGithubRepos([]);
+              window.localStorage.removeItem("githubRepoCache");
+            }
+          } catch (repoError) {
+            console.error("Failed to fetch repos:", repoError);
+            // On error, don't show fake repos - just clear
+            setRepoOptions([]);
+            setGithubRepos([]);
+            window.localStorage.removeItem("githubRepoCache");
+          }
+        } else {
+          window.localStorage.removeItem("githubRepoCache");
+          setRepoOptions([]);
+          setSelectedRepo("");
+          setGithubRepos([]);
+        }
+      }
+    } catch (error: any) {
+      console.error("[Assessments] GitHub status check failed", error);
+      setGithubError(error?.message || "Failed to check GitHub status.");
+    } finally {
+      setIsCheckingGithub(false);
+    }
+  }, [session?.user?.provider]);
+
+  useEffect(() => {
+    // Only refresh GitHub status if user is signed in with GitHub
+    // Always fetch repos when checking status (don't use autoFetchRepos param anymore)
+    if (session?.user?.provider === "github") {
+      refreshGithubStatus(true);
+    }
+  }, [refreshGithubStatus, session?.user?.provider]);
+
+  // Check for GitHub connection success from URL params
+  useEffect(() => {
+    const githubAuthStatus = searchParams?.get("githubAuthStatus");
+    const githubAuthError = searchParams?.get("githubAuthError");
+    const githubAuthMessage = searchParams?.get("githubAuthMessage");
+
+    if (githubAuthError) {
+      showError(githubAuthError);
+      // Clean up URL params
+      const url = new URL(window.location.href);
+      url.searchParams.delete("githubAuthError");
+      router.replace(url.pathname + url.search);
+    } else if (githubAuthStatus === "connected" || githubAuthStatus === "reauthorized") {
+      showSuccess(githubAuthMessage || "GitHub connected successfully!");
+      // Refresh GitHub status and fetch repos (always fetches real repos now)
+      if (session?.user?.provider === "github") {
+        refreshGithubStatus(true);
+      }
+      // Clean up URL params
+      const url = new URL(window.location.href);
+      url.searchParams.delete("githubAuthStatus");
+      url.searchParams.delete("githubAuthMessage");
+      router.replace(url.pathname + url.search);
+    }
+  }, [searchParams, session?.user?.provider, refreshGithubStatus, showSuccess, showError, router]);
+
+  const handleConnectGithub = async () => {
+    setGithubError(null);
+    setIsConnectingGithub(true);
+    try {
+      // Get current path for returnTo parameter
+      const currentPath = window.location.pathname;
+      const returnTo = currentPath || "/settings";
+      
+      // Redirect to the GitHub OAuth start endpoint
+      // The start endpoint will redirect to GitHub, then callback will redirect back
+      window.location.href = `/api/auth/github/start?returnTo=${encodeURIComponent(returnTo)}`;
+    } catch (error: any) {
+      console.error("[Assessments] GitHub connect failed", error);
+      setGithubError(error?.message || "GitHub authentication failed.");
+      setIsConnectingGithub(false);
+    }
+  };
+
+  const handleDisconnectGithub = async () => {
+    setGithubError(null);
+    try {
+      const response = await fetch("/api/auth/github/disconnect", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to disconnect GitHub.");
+      }
+
+      setGithubAccount({ connected: false });
+      setRepoOptions([]);
+      setSelectedRepo("");
+      setDetectedType(null);
+
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("githubRepoCache");
+      }
+
+      if (assessmentType === "whitebox") {
+        setTargetUrl("");
+      }
+    } catch (error: any) {
+      console.error("[Assessments] GitHub disconnect failed", error);
+      setGithubError(error?.message || "Unable to disconnect GitHub.");
+    }
+  };
+
+  const handleRepoSelect = (value: string) => {
+    setSelectedRepo(value);
+    if (value) {
+      setTargetUrl(value);
+      setDetectedType("whitebox");
+      setAssessmentType("whitebox");
+    }
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
@@ -164,6 +342,17 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
   }, [isWhitebox]);
 
   const fetchGithubRepos = async () => {
+    // Only allow GitHub users
+    if (session?.user?.provider !== "github") {
+      setRepoError("GitHub repository access is only available for users who signed in with GitHub.");
+      return;
+    }
+
+    if (!githubAccount.connected) {
+      setRepoError("Please connect your GitHub account first.");
+      return;
+    }
+
     setIsLoadingRepos(true);
     setRepoError(null);
 
@@ -187,10 +376,10 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
   };
 
   useEffect(() => {
-    if (showCreateForm && isWhitebox && !hasFetchedRepos && !isLoadingRepos) {
+    if (showCreateForm && isWhitebox && !hasFetchedRepos && !isLoadingRepos && session?.user?.provider === "github" && githubAccount.connected) {
       fetchGithubRepos();
     }
-  }, [showCreateForm, isWhitebox, hasFetchedRepos, isLoadingRepos]);
+  }, [showCreateForm, isWhitebox, hasFetchedRepos, isLoadingRepos, session?.user?.provider, githubAccount.connected]);
 
   const filteredRepos = useMemo(() => {
     if (!repoSearch.trim()) return githubRepos;
@@ -396,6 +585,78 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
             />
           </div>
 
+          {session?.user?.provider === "github" ? (
+            <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  {githubAccount.connected ? (
+                    <>
+                      {githubAccount.avatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={githubAccount.avatar}
+                          alt="GitHub avatar"
+                          className="h-10 w-10 rounded-full border border-border"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-slate-800 border border-border flex items-center justify-center text-lg">
+                          🐙
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-semibold text-foreground font-display">Connected to GitHub</p>
+                        <p className="text-xs text-muted-foreground">
+                          {githubAccount.username || "Authenticated GitHub user"}
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="h-10 w-10 rounded-full bg-slate-800 border border-border flex items-center justify-center text-lg">
+                        🐙
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground font-display">Connect GitHub</p>
+                        <p className="text-xs text-muted-foreground">Authorize to pick repositories for whitebox scans.</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+                {githubAccount.connected ? (
+                  <button
+                    type="button"
+                    onClick={handleDisconnectGithub}
+                    className="text-xs px-3 py-2 rounded-lg border border-border text-foreground hover:bg-secondary transition-colors"
+                  >
+                    Disconnect
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleConnectGithub}
+                    disabled={isConnectingGithub || isCheckingGithub}
+                    className="text-xs px-3 py-2 rounded-lg bg-gradient-to-r from-slate-800 to-slate-700 text-white hover:from-slate-700 hover:to-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    {isConnectingGithub || isCheckingGithub ? "Connecting..." : "Connect GitHub"}
+                  </button>
+                )}
+              </div>
+
+              {githubError && (
+                <p className="text-xs text-red-500 font-display animate-slide-in-down">{githubError}</p>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-border bg-secondary/20 p-4">
+              <p className="text-sm text-muted-foreground font-display">
+                💡 GitHub repository selection is only available when you sign in with GitHub. 
+                <Link href="/auth/login" className="text-primary hover:underline ml-1">
+                  Switch to GitHub sign-in
+                </Link>
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-foreground mb-2 font-display">
@@ -442,6 +703,40 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
             </div>
           </div>
 
+          {session?.user?.provider === "github" && (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2 font-display">
+                GitHub Repository (optional)
+              </label>
+              <select
+                value={selectedRepo}
+                onChange={(e) => handleRepoSelect(e.target.value)}
+                disabled={!githubAccount.connected || githubRepos.length === 0}
+                className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <option value="">
+                  {!githubAccount.connected
+                    ? "Connect GitHub to choose a repository"
+                    : isLoadingRepos
+                    ? "Loading repositories..."
+                    : githubRepos.length === 0
+                    ? "No repositories found"
+                    : "Select a repository"}
+                </option>
+                {githubRepos.map((repo) => (
+                  <option key={repo.id} value={`https://github.com/${repo.full_name}`}>
+                    {repo.full_name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground mt-2">
+                {githubAccount.connected
+                  ? "Select a repository from your GitHub account to auto-fill the Git URL."
+                  : "Connect GitHub to access your repositories."}
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-foreground mb-2 font-display">
               URL or Git Repository *
@@ -478,21 +773,13 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
             )}
           </div>
 
-          {isWhitebox && (
+          {isWhitebox && session?.user?.provider === "github" && (
             <div className="space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1 font-display">
-                    Select GitHub repositories (optional)
-                  </label>
-                  <p className="text-xs text-muted-foreground">
-                    We will save these selections with your assessment draft to streamline whitebox scans.
-                  </p>
-                </div>
+              <div className="flex items-center justify-end">
                 <button
                   type="button"
                   onClick={fetchGithubRepos}
-                  disabled={isLoadingRepos}
+                  disabled={isLoadingRepos || !githubAccount.connected}
                   className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:border-primary/50 hover:text-primary transition-colors disabled:opacity-60"
                 >
                   {isLoadingRepos ? "Refreshing..." : "Refresh repos"}
@@ -509,17 +796,22 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
                   value={repoSearch}
                   onChange={(e) => setRepoSearch(e.target.value)}
                   placeholder="Search repositories by name"
-                  className="w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
+                  disabled={!githubAccount.connected}
+                  className="w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary disabled:opacity-60"
                 />
 
                 <div className="max-h-48 overflow-y-auto rounded-xl border border-border bg-card divide-y divide-border/60">
-                  {isLoadingRepos ? (
+                  {!githubAccount.connected ? (
+                    <p className="px-4 py-3 text-sm text-muted-foreground">
+                      Connect GitHub above to load your repositories.
+                    </p>
+                  ) : isLoadingRepos ? (
                     <p className="px-4 py-3 text-sm text-muted-foreground">Loading repositories...</p>
                   ) : filteredRepos.length === 0 ? (
                     <p className="px-4 py-3 text-sm text-muted-foreground">
                       {hasFetchedRepos
                         ? "No repositories found. Try adjusting your search."
-                        : "Connect with GitHub to load your repositories."}
+                        : "Click 'Refresh repos' to load your repositories."}
                     </p>
                   ) : (
                     filteredRepos.map((repo) => (
