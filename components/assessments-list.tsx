@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "next-auth/react";
@@ -12,6 +12,16 @@ import { useToast } from "./toast";
 
 interface AssessmentsListProps {
   projectId: string;
+}
+
+interface GitHubRepo {
+  id: number;
+  name: string;
+  fullName: string;
+  cloneUrl: string;
+  htmlUrl: string;
+  owner?: string;
+  private: boolean;
 }
 
 export default function AssessmentsList({ projectId }: AssessmentsListProps) {
@@ -24,6 +34,12 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
   const [assessmentType, setAssessmentType] = useState<"blackbox" | "whitebox" | "auto">("auto");
   const [targetType, setTargetType] = useState("web_app");
   const [targetUrl, setTargetUrl] = useState("");
+  const [githubToken, setGithubToken] = useState("");
+  const [githubRepos, setGithubRepos] = useState<GitHubRepo[]>([]);
+  const [githubUser, setGithubUser] = useState<string | null>(null);
+  const [githubError, setGithubError] = useState<string | null>(null);
+  const [githubLoading, setGithubLoading] = useState(false);
+  const [selectedGithubRepo, setSelectedGithubRepo] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [detectedType, setDetectedType] = useState<"blackbox" | "whitebox" | null>(null);
@@ -36,6 +52,10 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
     project && "orgId" in project && project.orgId ? { orgId: project.orgId } : "skip"
   );
   const hasCredits = org && "credits" in org ? (org.credits ?? 0) > 0 : false;
+  const isWhitebox = useMemo(
+    () => assessmentType === "whitebox" || detectedType === "whitebox",
+    [assessmentType, detectedType]
+  );
   
   // Auto-detect assessment type based on URL
   const detectAssessmentType = (url: string): "blackbox" | "whitebox" | null => {
@@ -75,7 +95,7 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
   // Handle URL input change with auto-detection
   const handleUrlChange = (value: string) => {
     setTargetUrl(value);
-    
+
     // Clear URL errors when user types
     if (errors.targetUrl) {
       setErrors({ ...errors, targetUrl: "" });
@@ -89,6 +109,91 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
     if (detected) {
       setAssessmentType(detected);
     }
+  };
+
+  const handleLoadGithubRepos = async (options?: { resync?: boolean }) => {
+    if (!githubToken.trim()) {
+      const message = "Paste a GitHub token with repo and read:user scopes to load repositories.";
+      setGithubError(message);
+      showError(message);
+      return;
+    }
+
+    setGithubLoading(true);
+    setGithubError(null);
+
+    try {
+      const response = await fetch("/api/github/repositories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: githubToken.trim(),
+          selectedRepos: selectedGithubRepo ? [selectedGithubRepo] : [],
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const message = data?.error?.message || "Unable to load repositories from GitHub.";
+        setGithubError(message);
+        showError(message);
+        setGithubRepos([]);
+        return;
+      }
+
+      setGithubRepos(data.repos || []);
+      setGithubUser(data.user?.login ?? null);
+
+      if (data.ownershipIssues?.length) {
+        const message = data.ownershipIssues.join(" ");
+        setGithubError(message);
+        showError(message);
+        setSelectedGithubRepo("");
+      } else if (options?.resync) {
+        showToast("Repositories refreshed from GitHub.", "success");
+      } else {
+        showSuccess("GitHub repositories loaded.");
+      }
+
+      if (selectedGithubRepo) {
+        const repo = (data.repos as GitHubRepo[] | undefined)?.find(
+          (r) => r.fullName === selectedGithubRepo
+        );
+        if (repo) {
+          setTargetUrl(repo.cloneUrl);
+          setDetectedType("whitebox");
+          setAssessmentType("whitebox");
+        }
+      }
+    } catch (error) {
+      console.error("GitHub repository load error", error);
+      const message = "Failed to reach GitHub. Please try again.";
+      setGithubError(message);
+      showError(message);
+    } finally {
+      setGithubLoading(false);
+    }
+  };
+
+  const handleRepoSelect = (fullName: string) => {
+    setSelectedGithubRepo(fullName);
+    if (!fullName) return;
+
+    const repo = githubRepos.find((r) => r.fullName === fullName);
+    if (!repo) return;
+
+    if (githubUser && repo.owner && repo.owner !== githubUser) {
+      const message = `You can only run scans against repositories you own. ${fullName} belongs to ${repo.owner}.`;
+      setGithubError(message);
+      showError(message);
+      return;
+    }
+
+    setGithubError(null);
+    setTargetUrl(repo.cloneUrl);
+    setDetectedType("whitebox");
+    setAssessmentType("whitebox");
   };
 
   const validateForm = () => {
@@ -393,6 +498,84 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
               </p>
             )}
           </div>
+
+          {isWhitebox && (
+            <div className="rounded-xl border border-border bg-secondary/50 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <p className="text-sm font-semibold text-foreground font-display">
+                    GitHub repository picker
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    We will verify token scopes and that you own the repo before starting a whitebox scan.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleLoadGithubRepos({ resync: true })}
+                  disabled={githubLoading || !githubToken.trim()}
+                  className="rounded-lg border border-primary/30 bg-card px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {githubLoading ? "Syncing..." : "Resync repositories"}
+                </button>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-[2fr,1fr]">
+                <input
+                  type="password"
+                  value={githubToken}
+                  onChange={(e) => {
+                    setGithubToken(e.target.value);
+                    if (githubError) setGithubError(null);
+                  }}
+                  placeholder="GitHub token with repo + read:user scopes"
+                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all duration-300"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleLoadGithubRepos()}
+                  disabled={githubLoading}
+                  className="rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 px-4 py-3 text-sm font-semibold text-white hover:from-sky-400 hover:to-cyan-400 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-300"
+                >
+                  {githubLoading ? "Checking token..." : "Load repositories"}
+                </button>
+              </div>
+
+              {githubError && (
+                <p className="text-xs text-red-500 font-display animate-slide-in-down">{githubError}</p>
+              )}
+
+              {githubRepos.length > 0 && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-foreground font-display">
+                    Choose a repository you own
+                  </label>
+                  <select
+                    value={selectedGithubRepo}
+                    onChange={(e) => handleRepoSelect(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all duration-300"
+                  >
+                    <option value="">Select a repository</option>
+                    {githubRepos.map((repo) => (
+                      <option
+                        key={repo.id}
+                        value={repo.fullName}
+                        disabled={githubUser !== null && !!repo.owner && repo.owner !== githubUser}
+                      >
+                        {repo.fullName} {repo.private ? "(private)" : ""}
+                        {githubUser && repo.owner && repo.owner !== githubUser
+                          ? ` - owned by ${repo.owner}`
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    Selecting a repository fills the git URL using your verified token.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           <button
             type="submit"
