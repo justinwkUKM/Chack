@@ -28,6 +28,20 @@ export default function SettingsContent({
   const creditHistory = useQuery(api.credits.getHistory, { orgId, limit: 20 });
   const subscription = useQuery(api.subscriptions.getSubscription, { orgId });
   const searchParams = useSearchParams();
+  
+  // Check if Stripe is configured
+  const [stripeConfigured, setStripeConfigured] = useState<boolean | null>(null);
+  
+  useEffect(() => {
+    fetch("/api/stripe/config")
+      .then((res) => res.json())
+      .then((data) => {
+        setStripeConfigured(data.configured);
+      })
+      .catch(() => {
+        setStripeConfigured(false);
+      });
+  }, []);
 
   const updateUserName = useMutation(api.users.updateName);
   const updateOrgName = useMutation(api.organizations.updateName);
@@ -143,6 +157,12 @@ export default function SettingsContent({
 
     // If upgrading to Pro, redirect to Stripe checkout
     if (newPlan === "pro" && org && 'plan' in org && org.plan === "free") {
+      // Check if Stripe is configured
+      if (stripeConfigured === false) {
+        showToast("Pro plan upgrades are currently unavailable. Please contact support.", "error");
+        return;
+      }
+
       setSaving(true);
       try {
         const response = await fetch("/api/stripe/checkout", {
@@ -155,15 +175,20 @@ export default function SettingsContent({
 
         if (!response.ok) {
           const error = await response.json();
-          throw new Error(error.error || "Failed to create checkout session");
-        }
-
-        const { url } = await response.json();
-        if (url) {
-          window.location.href = url;
+          if (response.status === 503) {
+            showToast("Payment processing is not configured. Please contact support.", "error");
+          } else {
+            throw new Error(error.error || "Failed to create checkout session");
+          }
+        } else {
+          const { url } = await response.json();
+          if (url) {
+            window.location.href = url;
+          }
         }
       } catch (error: any) {
         showToast(error.message || "Failed to start checkout. Please try again.", "error");
+      } finally {
         setSaving(false);
       }
       return;
@@ -214,6 +239,11 @@ export default function SettingsContent({
   };
 
   const handleManageBilling = async () => {
+    if (stripeConfigured === false) {
+      showToast("Billing management is currently unavailable. Please contact support.", "error");
+      return;
+    }
+
     setSaving(true);
     try {
       const response = await fetch("/api/stripe/portal", {
@@ -226,15 +256,20 @@ export default function SettingsContent({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Failed to create portal session");
-      }
-
-      const { url } = await response.json();
-      if (url) {
-        window.location.href = url;
+        if (response.status === 503) {
+          showToast("Payment processing is not configured. Please contact support.", "error");
+        } else {
+          throw new Error(error.error || "Failed to create portal session");
+        }
+      } else {
+        const { url } = await response.json();
+        if (url) {
+          window.location.href = url;
+        }
       }
     } catch (error: any) {
       showToast(error.message || "Failed to open billing portal. Please try again.", "error");
+    } finally {
       setSaving(false);
     }
   };
@@ -521,13 +556,21 @@ export default function SettingsContent({
                     Manage Billing
                   </button>
                 ) : org && 'plan' in org && org.plan !== "pro" ? (
-                  <button
-                    onClick={() => handlePlanChange("pro")}
-                    disabled={saving}
-                    className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 px-4 py-3 text-sm font-semibold text-white hover:from-sky-400 hover:to-cyan-400 disabled:opacity-50 hover:scale-105 hover:shadow-lg hover:shadow-sky-500/30 transition-all duration-300 font-display"
-                  >
-                    {saving ? "Loading..." : "Upgrade to Pro"}
-                  </button>
+                  <>
+                    {stripeConfigured === false && (
+                      <div className="mb-2 text-xs text-muted-foreground bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-2">
+                        ⚠️ Pro plan unavailable (Stripe not configured)
+                      </div>
+                    )}
+                    <button
+                      onClick={() => handlePlanChange("pro")}
+                      disabled={saving || stripeConfigured === false}
+                      className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 px-4 py-3 text-sm font-semibold text-white hover:from-sky-400 hover:to-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 hover:shadow-lg hover:shadow-sky-500/30 transition-all duration-300 font-display"
+                      title={stripeConfigured === false ? "Stripe payment processing is not configured" : undefined}
+                    >
+                      {saving ? "Loading..." : stripeConfigured === false ? "Unavailable" : "Upgrade to Pro"}
+                    </button>
+                  </>
                 ) : null}
               </div>
 

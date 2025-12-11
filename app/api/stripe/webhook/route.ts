@@ -3,24 +3,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { stripe } from "@/lib/stripe";
-
-if (!stripe) {
-  throw new Error("Stripe is not configured. Please set STRIPE_SECRET_KEY.");
-}
 import { fetchMutation } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 import Stripe from "stripe";
+import { isStripeConfigured } from "@/lib/stripeConfig";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-if (!webhookSecret) {
-  throw new Error("STRIPE_WEBHOOK_SECRET is not set");
+// TypeScript now knows webhookSecret is defined
+const WEBHOOK_SECRET: string = webhookSecret || "";
+
+// Check configuration at module load (non-blocking for graceful degradation)
+if (!webhookSecret || !isStripeConfigured()) {
+  console.warn("⚠️  Stripe webhook secret not configured. Webhook endpoint will return errors.");
 }
 
-// TypeScript now knows webhookSecret is defined
-const WEBHOOK_SECRET: string = webhookSecret;
-
 export async function POST(request: NextRequest) {
+  // Check if Stripe is configured
+  if (!isStripeConfigured() || !stripe || !WEBHOOK_SECRET) {
+    console.error("Stripe webhook called but Stripe is not configured");
+    return NextResponse.json(
+      { error: "Webhook endpoint not configured" },
+      { status: 503 }
+    );
+  }
+
   const body = await request.text();
   const headersList = await headers();
   const signature = headersList.get("stripe-signature");

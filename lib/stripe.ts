@@ -1,11 +1,15 @@
 // lib/stripe.ts
 
 import Stripe from "stripe";
+import { isStripeConfigured } from "./stripeConfig";
 
 // Only throw error at runtime, not during build
 if (typeof window === "undefined" && process.env.NODE_ENV !== "test") {
   if (!process.env.STRIPE_SECRET_KEY) {
-    console.warn("STRIPE_SECRET_KEY is not set - Stripe features will not work");
+    console.warn("⚠️  STRIPE_SECRET_KEY is not set - Stripe features will not work");
+  }
+  if (!isStripeConfigured()) {
+    console.warn("⚠️  Stripe is not fully configured - Pro plan upgrades will be disabled");
   }
 }
 

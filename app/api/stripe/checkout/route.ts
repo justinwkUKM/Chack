@@ -6,9 +6,18 @@ import { authOptions } from "@/lib/auth";
 import { stripe, STRIPE_PRICE_IDS } from "@/lib/stripe";
 import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
+import { isStripeConfigured } from "@/lib/stripeConfig";
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if Stripe is configured
+    if (!isStripeConfigured()) {
+      return NextResponse.json(
+        { error: "Payment processing is not configured. Please contact support." },
+        { status: 503 }
+      );
+    }
+
     // Verify authentication
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
