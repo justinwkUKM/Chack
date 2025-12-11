@@ -69,7 +69,7 @@ export function CyberAssistantPanel({ orgName }: { orgName?: string }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          messages: [...messages.filter((m) => m.role !== "system"), userMessage].map((message) => ({
+          messages: [...messages, userMessage].map((message) => ({
             role: message.role,
             content: message.content,
           })),
@@ -251,12 +251,9 @@ function MessageBubble({ role, content }: { role: ChatMessage["role"]; content: 
             : "bg-gradient-to-r from-sky-500 to-indigo-500 text-white"
         }`}
       >
-        <ReactMarkdown
-          className="prose prose-sm max-w-none prose-headings:font-semibold prose-p:my-2 prose-li:my-1 dark:prose-invert"
-          remarkPlugins={[remarkGfm]}
-        >
-          {content}
-        </ReactMarkdown>
+        <div className="prose prose-sm max-w-none prose-headings:font-semibold prose-p:my-2 prose-li:my-1 dark:prose-invert">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+        </div>
       </div>
       {!isAssistant && (
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/20 text-sky-700 dark:text-sky-200">
