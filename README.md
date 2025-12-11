@@ -592,6 +592,8 @@ TOKEN_ENCRYPTION_KEY=32+ character secret for encrypting stored GitHub tokens
 GITHUB_APP_ID=optional-github-app-id
 GITHUB_APP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
 GITHUB_APP_INSTALLATION_ID=optional-installation-id
+GOOGLE_API_KEY=your-google-generative-ai-key
+GOOGLE_MODEL=gemini-1.5-pro # optional override for the cyber assistant model
 
 # Convex
 NEXT_PUBLIC_CONVEX_URL=https://your-project.convex.cloud
