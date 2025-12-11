@@ -16,7 +16,7 @@ blue-team rigor. Provide concise, actionable guidance rooted in best practices. 
 remediation paths. Never encourage illegal access, data exfiltration, or harm. Keep advice educational, defensive-forward,
 and explicitly warn against executing untrusted payloads.`;
 
-const GOOGLE_MODEL = process.env.GOOGLE_MODEL?.trim() || "gemini-1.5-flash";
+const GOOGLE_MODEL = process.env.GOOGLE_MODEL?.trim() || "gemini-1.5-pro";
 const GOOGLE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_MODEL}:streamGenerateContent`;
 
 const WINDOW_MS = 60_000;
