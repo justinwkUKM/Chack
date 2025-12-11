@@ -5,7 +5,6 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import ProjectsList from "./projects-list";
-import { CyberAssistantPanel } from "./cyber-assistant-panel";
 
 interface DashboardContentProps {
   userId: string;
@@ -17,13 +16,6 @@ export default function DashboardContent({ userId }: DashboardContentProps) {
   if (defaultOrg === undefined) {
     return (
       <div className="space-y-6 animate-fade-in">
-        {/* Cyber Assistant Skeleton */}
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
-          <div className="h-5 w-40 rounded-full bg-muted/50 animate-pulse" />
-          <div className="h-6 w-64 rounded-full bg-muted/60 animate-pulse" />
-          <div className="h-32 rounded-xl bg-muted/40 animate-pulse" />
-        </div>
-
         {/* Projects List Skeleton */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -32,7 +24,11 @@ export default function DashboardContent({ userId }: DashboardContentProps) {
           </div>
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-xl border border-border bg-card p-5 space-y-3 animate-pulse" style={{ animationDelay: `${i * 0.1}s` }}>
+              <div
+                key={i}
+                className="rounded-xl border border-border bg-card p-5 space-y-3 animate-pulse"
+                style={{ animationDelay: `${i * 0.1}s` }}
+              >
                 <div className="h-6 w-48 rounded bg-muted/50" />
                 <div className="h-4 w-full rounded bg-muted/40" />
                 <div className="h-4 w-5/6 rounded bg-muted/40" />
@@ -60,7 +56,6 @@ export default function DashboardContent({ userId }: DashboardContentProps) {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <CyberAssistantPanel orgName={"name" in defaultOrg ? defaultOrg.name : undefined} />
       <ProjectsList orgId={defaultOrg._id} />
     </div>
   );
