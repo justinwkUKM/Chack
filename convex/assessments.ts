@@ -59,16 +59,27 @@ export const create = mutation({
 
     const orgId = project.orgId as string;
 
-    // Check if organization has enough credits
+    // Check if organization has enough credits and valid subscription
     const org = await ctx.db.get(orgId as any);
     if (!org) {
       throw new Error("Organization not found");
     }
 
+    const plan = ("plan" in org ? org.plan : "free") as string;
+    const stripeStatus = ("stripeStatus" in org ? org.stripeStatus : undefined) as string | undefined;
+
+    // Validate Pro plan subscription
+    if (plan === "pro") {
+      if (!stripeStatus || (stripeStatus !== "active" && stripeStatus !== "trialing")) {
+        throw new Error(
+          "Your Pro subscription is not active. Please update your payment method or contact support."
+        );
+      }
+    }
+
     // Handle backward compatibility
     let orgCredits: number;
     if (!("credits" in org) || org.credits === undefined) {
-      const plan = ("plan" in org ? org.plan : "free") as string;
       orgCredits = plan === "pro" ? 1000 : 10;
       // Backfill credits
       await ctx.db.patch(orgId as any, {

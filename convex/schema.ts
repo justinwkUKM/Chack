@@ -31,11 +31,19 @@ export default defineSchema({
     createdByUserId: v.string(), // NextAuth user id (sub)
     plan: v.string(), // free | pro | enterprise
     credits: v.optional(v.number()), // Available credits (optional for backward compatibility)
+    // Stripe subscription fields
+    stripeCustomerId: v.optional(v.string()), // Stripe customer ID
+    stripeSubscriptionId: v.optional(v.string()), // Stripe subscription ID
+    stripePriceId: v.optional(v.string()), // Stripe price ID for the plan
+    stripeStatus: v.optional(v.string()), // active | canceled | past_due | trialing | unpaid
+    stripeCurrentPeriodEnd: v.optional(v.number()), // Unix timestamp
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_owner", ["createdByUserId"])
-    .index("by_slug", ["slug"]),
+    .index("by_slug", ["slug"])
+    .index("by_stripe_customer", ["stripeCustomerId"])
+    .index("by_stripe_subscription", ["stripeSubscriptionId"]),
 
   // Memberships table
   memberships: defineTable({
@@ -158,5 +166,18 @@ export default defineSchema({
     details: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_user", ["userId"]),
+
+  // Stripe subscription events for audit logging
+  subscriptionEvents: defineTable({
+    orgId: v.string(),
+    event: v.string(), // subscription_created | subscription_updated | subscription_canceled | payment_succeeded | payment_failed
+    stripeEventId: v.optional(v.string()), // Stripe event ID for reference
+    stripeSubscriptionId: v.optional(v.string()),
+    stripeCustomerId: v.optional(v.string()),
+    details: v.optional(v.string()), // JSON string with event details
+    createdAt: v.number(),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_stripe_subscription", ["stripeSubscriptionId"]),
 });
 

@@ -314,8 +314,8 @@ export default async function HomePage() {
               <p className="mt-1 text-sm text-muted-foreground">For growing teams</p>
               
               <div className="mt-6 mb-6">
-                <p className="text-4xl font-bold text-foreground">$49<span className="text-lg text-muted-foreground">/month</span></p>
-                <p className="text-sm text-muted-foreground mt-2">Billed monthly</p>
+                <p className="text-4xl font-bold text-foreground">$49<span className="text-lg text-muted-foreground">/year</span></p>
+                <p className="text-sm text-muted-foreground mt-2">Billed annually</p>
               </div>
 
               <div className="space-y-1 mb-6 flex-1">

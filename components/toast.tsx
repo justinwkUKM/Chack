@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 interface ToastProps {
   message: string;
@@ -72,14 +72,14 @@ export function Toast({ message, type, onClose, duration = 4000 }: ToastProps) {
 export function useToast() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "warning" | "info" } | null>(null);
 
-  const showToast = (message: string, type: "success" | "error" | "warning" | "info" = "success") => {
+  const showToast = useCallback((message: string, type: "success" | "error" | "warning" | "info" = "success") => {
     setToast({ message, type });
-  };
+  }, []);
 
-  const success = (message: string) => showToast(message, "success");
-  const error = (message: string) => showToast(message, "error");
-  const warning = (message: string) => showToast(message, "warning");
-  const info = (message: string) => showToast(message, "info");
+  const success = useCallback((message: string) => showToast(message, "success"), [showToast]);
+  const error = useCallback((message: string) => showToast(message, "error"), [showToast]);
+  const warning = useCallback((message: string) => showToast(message, "warning"), [showToast]);
+  const info = useCallback((message: string) => showToast(message, "info"), [showToast]);
 
   const ToastComponent = toast ? (
     <Toast

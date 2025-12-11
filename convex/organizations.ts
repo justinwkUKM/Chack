@@ -8,7 +8,8 @@ export const listByUser = query({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
     // Get all memberships for the user
-    const memberships = await ctx.db
+    const
+     memberships = await ctx.db
       .query("memberships")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();

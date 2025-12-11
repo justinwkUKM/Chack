@@ -63,7 +63,13 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
     api.organizations.get,
     project && "orgId" in project && project.orgId ? { orgId: project.orgId } : "skip"
   );
+  const subscription = useQuery(
+    api.subscriptions.getSubscription,
+    project && "orgId" in project && project.orgId ? { orgId: project.orgId } : "skip"
+  );
   const hasCredits = org && "credits" in org ? (org.credits ?? 0) > 0 : false;
+  const plan = org && "plan" in org ? org.plan : "free";
+  const hasActiveSubscription = subscription?.stripeStatus === "active" || subscription?.stripeStatus === "trialing";
   
   // Auto-detect assessment type based on URL
   const detectAssessmentType = (url: string): "blackbox" | "whitebox" | null => {
@@ -470,6 +476,12 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
       let errorMessage = "💥 Something went wrong!";
       if (error?.message?.includes("credits")) {
         errorMessage = "💳 Oops! You're out of credits. Time to upgrade!";
+      } else if (error?.message?.includes("subscription") || error?.message?.includes("payment")) {
+        errorMessage = "💳 Your subscription needs attention. Please check your payment method in Settings.";
+        // Optionally redirect to settings
+        setTimeout(() => {
+          router.push("/settings");
+        }, 2000);
       } else if (error?.message?.includes("not found")) {
         errorMessage = "🔍 Project not found. Did it disappear?";
       } else if (error?.message) {

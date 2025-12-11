@@ -26,6 +26,7 @@ export default function SettingsContent({
   const user = useQuery(api.users.getById, { userId });
   const org = useQuery(api.organizations.get, { orgId });
   const creditHistory = useQuery(api.credits.getHistory, { orgId, limit: 20 });
+  const subscription = useQuery(api.subscriptions.getSubscription, { orgId });
   const searchParams = useSearchParams();
 
   const updateUserName = useMutation(api.users.updateName);
@@ -51,6 +52,22 @@ export default function SettingsContent({
     }
   }, [org]);
 
+  // Handle Stripe redirects
+  useEffect(() => {
+    const upgrade = searchParams?.get("upgrade");
+    const sessionId = searchParams?.get("session_id");
+
+    if (upgrade === "success" && sessionId) {
+      showToast("Payment successful! Your Pro subscription is now active.", "success");
+      // Remove query params
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (upgrade === "canceled") {
+      showToast("Payment was canceled. No charges were made.", "info");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams?.toString()]);
+
   useEffect(() => {
     const error = searchParams?.get("githubAuthError");
     const status = searchParams?.get("githubAuthStatus");
@@ -63,7 +80,8 @@ export default function SettingsContent({
     } else if (status === "connected") {
       showToast(message || "GitHub authorization completed.", "success");
     }
-  }, [searchParams, showToast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams?.toString()]);
 
   const handleUpdateUserName = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,6 +141,58 @@ export default function SettingsContent({
       return;
     }
 
+    // If upgrading to Pro, redirect to Stripe checkout
+    if (newPlan === "pro" && org && 'plan' in org && org.plan === "free") {
+      setSaving(true);
+      try {
+        const response = await fetch("/api/stripe/checkout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ orgId }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Failed to create checkout session");
+        }
+
+        const { url } = await response.json();
+        if (url) {
+          window.location.href = url;
+        }
+      } catch (error: any) {
+        showToast(error.message || "Failed to start checkout. Please try again.", "error");
+        setSaving(false);
+      }
+      return;
+    }
+
+    // Downgrade to free (only if currently on Pro)
+    if (newPlan === "free" && org && 'plan' in org && org.plan === "pro") {
+      if (
+        !confirm(
+          "Are you sure you want to downgrade to Free plan? You will lose access to Pro features."
+        )
+      ) {
+        return;
+      }
+
+      setSaving(true);
+      try {
+        await updatePlan({ orgId, plan: newPlan, userId });
+        showToast("Plan downgraded to Free successfully!", "success");
+      } catch (error) {
+        showToast("Failed to downgrade plan. Please try again.", "error");
+        console.error(error);
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    // For other plan changes
     if (
       !confirm(
         `Are you sure you want to ${newPlan === "pro" ? "upgrade" : "downgrade"} to ${newPlan} plan?`
@@ -134,11 +204,37 @@ export default function SettingsContent({
     setSaving(true);
     try {
       await updatePlan({ orgId, plan: newPlan, userId });
-      alert(`Plan updated to ${newPlan} successfully!`);
+      showToast(`Plan updated to ${newPlan} successfully!`, "success");
     } catch (error) {
-      alert("Failed to update plan");
+      showToast("Failed to update plan. Please try again.", "error");
       console.error(error);
     } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleManageBilling = async () => {
+    setSaving(true);
+    try {
+      const response = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ orgId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create portal session");
+      }
+
+      const { url } = await response.json();
+      if (url) {
+        window.location.href = url;
+      }
+    } catch (error: any) {
+      showToast(error.message || "Failed to open billing portal. Please try again.", "error");
       setSaving(false);
     }
   };
@@ -398,22 +494,41 @@ export default function SettingsContent({
                     </span>
                   )}
                 </div>
-                <div className="text-3xl font-display font-bold mb-4 text-foreground">$49/mo</div>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>✓ 1000 credits included</li>
-                  <li>✓ All features</li>
-                  <li>✓ Priority support</li>
-                  <li>✓ Advanced analytics</li>
+                <div className="text-3xl font-display font-bold mb-4 text-foreground">$49/yr</div>
+                <ul className="space-y-2 text-sm text-muted-foreground mb-4">
+                  <li>✓ 1,000 tests per month</li>
+                  <li>✓ Advanced vulnerability scanning</li>
+                  <li>✓ Authenticated flow testing</li>
+                  <li>✓ Priority email support</li>
+                  <li>✓ Team collaboration</li>
                 </ul>
-                {org && 'plan' in org && org.plan !== "pro" && (
+                {subscription?.stripeStatus && (
+                  <div className="mb-3 text-xs text-muted-foreground">
+                    Status: {subscription.stripeStatus === "active" ? "Active" : subscription.stripeStatus}
+                    {subscription.stripeCurrentPeriodEnd && (
+                      <div className="mt-1">
+                        Renews: {new Date(subscription.stripeCurrentPeriodEnd).toLocaleDateString()} (yearly)
+                      </div>
+                    )}
+                  </div>
+                )}
+                {org && 'plan' in org && org.plan === "pro" && subscription?.stripeCustomerId ? (
+                  <button
+                    onClick={handleManageBilling}
+                    disabled={saving}
+                    className="w-full rounded-xl bg-secondary px-4 py-3 text-sm font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 hover:scale-105 transition-all duration-300 font-display border border-border"
+                  >
+                    Manage Billing
+                  </button>
+                ) : org && 'plan' in org && org.plan !== "pro" ? (
                   <button
                     onClick={() => handlePlanChange("pro")}
                     disabled={saving}
                     className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 px-4 py-3 text-sm font-semibold text-white hover:from-sky-400 hover:to-cyan-400 disabled:opacity-50 hover:scale-105 hover:shadow-lg hover:shadow-sky-500/30 transition-all duration-300 font-display"
                   >
-                    {org && 'plan' in org && org.plan === "free" ? "Upgrade" : "Switch"}
+                    {saving ? "Loading..." : "Upgrade to Pro"}
                   </button>
-                )}
+                ) : null}
               </div>
 
               {/* Enterprise Plan */}
