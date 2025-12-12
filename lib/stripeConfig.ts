@@ -2,41 +2,57 @@
 
 /**
  * Check if Stripe is properly configured
+ * Safely returns false if any required env vars are missing
+ * Never throws errors - safe to call even when Stripe is not configured
  */
 export function isStripeConfigured(): boolean {
-  return !!(
-    process.env.STRIPE_SECRET_KEY &&
-    process.env.STRIPE_PRO_PRICE_ID &&
-    process.env.STRIPE_WEBHOOK_SECRET
-  );
+  try {
+    return !!(
+      process.env.STRIPE_SECRET_KEY &&
+      process.env.STRIPE_PRO_PRICE_ID &&
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (error) {
+    // If there's any error accessing env vars, assume Stripe is not configured
+    return false;
+  }
 }
 
 /**
  * Check if Stripe is configured (client-side safe)
  * Returns false if any required env vars are missing
+ * Never throws errors - safe to call even when Stripe is not configured
  */
 export function checkStripeConfig(): {
   configured: boolean;
   missing: string[];
 } {
-  const missing: string[] = [];
-  
-  if (!process.env.STRIPE_SECRET_KEY) {
-    missing.push("STRIPE_SECRET_KEY");
+  try {
+    const missing: string[] = [];
+    
+    if (!process.env.STRIPE_SECRET_KEY) {
+      missing.push("STRIPE_SECRET_KEY");
+    }
+    
+    if (!process.env.STRIPE_PRO_PRICE_ID) {
+      missing.push("STRIPE_PRO_PRICE_ID");
+    }
+    
+    if (!process.env.STRIPE_WEBHOOK_SECRET) {
+      missing.push("STRIPE_WEBHOOK_SECRET");
+    }
+    
+    return {
+      configured: missing.length === 0,
+      missing,
+    };
+  } catch (error) {
+    // If there's any error, assume Stripe is not configured
+    return {
+      configured: false,
+      missing: ["STRIPE_SECRET_KEY", "STRIPE_PRO_PRICE_ID", "STRIPE_WEBHOOK_SECRET"],
+    };
   }
-  
-  if (!process.env.STRIPE_PRO_PRICE_ID) {
-    missing.push("STRIPE_PRO_PRICE_ID");
-  }
-  
-  if (!process.env.STRIPE_WEBHOOK_SECRET) {
-    missing.push("STRIPE_WEBHOOK_SECRET");
-  }
-  
-  return {
-    configured: missing.length === 0,
-    missing,
-  };
 }
 
 /**

@@ -119,8 +119,8 @@ export async function GET() {
       return NextResponse.json(
         { error: "Failed to decrypt GitHub token." },
         { status: 500 }
-      );
-    }
+    );
+  }
 
     const accessToken = tokenInfo.accessToken;
     if (!accessToken) {
@@ -131,11 +131,11 @@ export async function GET() {
     }
 
     // Check cache
-    const cached = repoCache.get(session.user.id);
-    const now = Date.now();
-    if (cached && cached.expiresAt > now) {
-      return NextResponse.json({ repos: normalizeRepos(cached.repos), cached: true });
-    }
+  const cached = repoCache.get(session.user.id);
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) {
+    return NextResponse.json({ repos: normalizeRepos(cached.repos), cached: true });
+  }
 
     // Fetch repos from GitHub
     const repos = await fetchGitHubRepos(accessToken);

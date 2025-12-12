@@ -6,9 +6,10 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Settings } from "lucide-react";
+import { Settings, Home } from "lucide-react";
 
 // Mini projects list for sidebar
 function ProjectsList({ orgId }: { orgId: string }) {
@@ -54,6 +55,7 @@ export default function DashboardSidebar({
   userId,
 }: DashboardSidebarProps) {
   const { data: session } = useSession();
+  const pathname = usePathname();
   const [showOrgSwitcher, setShowOrgSwitcher] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
 
@@ -71,6 +73,25 @@ export default function DashboardSidebar({
   return (
     <aside className="w-64 h-full border-r border-border/80 bg-card/90 backdrop-blur text-foreground overflow-y-auto">
       <div className="p-4 space-y-6">
+        {/* Navigation Links */}
+        <div className="pb-4 border-b border-border space-y-2">
+          <Link
+            href="/dashboard"
+            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors group text-sm font-medium ${
+              pathname === "/dashboard"
+                ? "bg-gradient-to-r from-sky-500/20 to-cyan-500/20 text-primary border border-primary/30"
+                : "text-foreground hover:bg-secondary"
+            }`}
+          >
+            <Home className={`w-4 h-4 transition-colors ${
+              pathname === "/dashboard"
+                ? "text-primary"
+                : "text-muted-foreground group-hover:text-primary"
+            }`} />
+            <span>Dashboard</span>
+          </Link>
+        </div>
+
         {/* User Profile Section */}
         {session && user && (
           <div className="pb-4 border-b border-border">

@@ -72,7 +72,7 @@ export const authOptions: NextAuthOptions = {
           if (convexUrl && userId) {
             // Use Promise.race to add a timeout
             const queryPromise = (async () => {
-              const convex = new ConvexHttpClient(convexUrl);
+            const convex = new ConvexHttpClient(convexUrl);
               return await convex.query(api.users.getById, { userId });
             })();
             
@@ -92,7 +92,7 @@ export const authOptions: NextAuthOptions = {
           // If Convex query fails, use session data as fallback
           // Only log if it's not a timeout (to reduce noise)
           if (error instanceof Error && !error.message.includes("timeout") && !error.message.includes("Connect Timeout")) {
-            console.error("Failed to fetch user from Convex in session callback:", error);
+          console.error("Failed to fetch user from Convex in session callback:", error);
           }
         }
 
@@ -108,20 +108,20 @@ export const authOptions: NextAuthOptions = {
             if (convexUrl) {
               // Use Promise.race to add a timeout
               const mutationPromise = (async () => {
-                const convex = new ConvexHttpClient(convexUrl);
+              const convex = new ConvexHttpClient(convexUrl);
                 return await convex.mutation(api.users.upsert, {
                   id: userId,
-                  email: session.user.email || "",
-                  name: session.user.name || undefined,
-                  image: session.user.image || undefined,
-                  provider: "github",
-                  githubAccountId: token.githubAccountId as string | undefined,
-                  githubUsername: token.githubUsername as string | undefined,
-                  githubScopes: scopes,
-                  githubAccessToken: token.accessToken as string,
-                  githubTokenType: token.tokenType as string | undefined,
-                  githubTokenExpiresAt: token.tokenExpiresAt as number | undefined,
-                });
+                email: session.user.email || "",
+                name: session.user.name || undefined,
+                image: session.user.image || undefined,
+                provider: "github",
+                githubAccountId: token.githubAccountId as string | undefined,
+                githubUsername: token.githubUsername as string | undefined,
+                githubScopes: scopes,
+                githubAccessToken: token.accessToken as string,
+                githubTokenType: token.tokenType as string | undefined,
+                githubTokenExpiresAt: token.tokenExpiresAt as number | undefined,
+              });
               })();
               
               const timeoutPromise = new Promise((_, reject) => 
@@ -134,7 +134,7 @@ export const authOptions: NextAuthOptions = {
             // Only log if it's not a timeout (to reduce noise)
             // The token will be saved via the OAuth callback route anyway
             if (error instanceof Error && !error.message.includes("timeout") && !error.message.includes("Connect Timeout")) {
-              console.error("Failed to persist GitHub token metadata:", error);
+            console.error("Failed to persist GitHub token metadata:", error);
             }
           }
         }

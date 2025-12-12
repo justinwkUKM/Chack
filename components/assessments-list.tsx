@@ -599,66 +599,66 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
           </div>
 
           {session?.user?.provider === "github" ? (
-            <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  {githubAccount.connected ? (
-                    <>
-                      {githubAccount.avatar ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={githubAccount.avatar}
-                          alt="GitHub avatar"
-                          className="h-10 w-10 rounded-full border border-border"
-                        />
-                      ) : (
-                        <div className="h-10 w-10 rounded-full bg-slate-800 border border-border flex items-center justify-center text-lg">
-                          🐙
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-sm font-semibold text-foreground font-display">Connected to GitHub</p>
-                        <p className="text-xs text-muted-foreground">
-                          {githubAccount.username || "Authenticated GitHub user"}
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
+          <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                {githubAccount.connected ? (
+                  <>
+                    {githubAccount.avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={githubAccount.avatar}
+                        alt="GitHub avatar"
+                        className="h-10 w-10 rounded-full border border-border"
+                      />
+                    ) : (
                       <div className="h-10 w-10 rounded-full bg-slate-800 border border-border flex items-center justify-center text-lg">
                         🐙
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-foreground font-display">Connect GitHub</p>
-                        <p className="text-xs text-muted-foreground">Authorize to pick repositories for whitebox scans.</p>
-                      </div>
-                    </>
-                  )}
-                </div>
-                {githubAccount.connected ? (
-                  <button
-                    type="button"
-                    onClick={handleDisconnectGithub}
-                    className="text-xs px-3 py-2 rounded-lg border border-border text-foreground hover:bg-secondary transition-colors"
-                  >
-                    Disconnect
-                  </button>
+                    )}
+                    <div>
+                      <p className="text-sm font-semibold text-foreground font-display">Connected to GitHub</p>
+                      <p className="text-xs text-muted-foreground">
+                        {githubAccount.username || "Authenticated GitHub user"}
+                      </p>
+                    </div>
+                  </>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={handleConnectGithub}
-                    disabled={isConnectingGithub || isCheckingGithub}
-                    className="text-xs px-3 py-2 rounded-lg bg-gradient-to-r from-slate-800 to-slate-700 text-white hover:from-slate-700 hover:to-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                  >
-                    {isConnectingGithub || isCheckingGithub ? "Connecting..." : "Connect GitHub"}
-                  </button>
+                  <>
+                    <div className="h-10 w-10 rounded-full bg-slate-800 border border-border flex items-center justify-center text-lg">
+                      🐙
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground font-display">Connect GitHub</p>
+                      <p className="text-xs text-muted-foreground">Authorize to pick repositories for whitebox scans.</p>
+                    </div>
+                  </>
                 )}
               </div>
-
-              {githubError && (
-                <p className="text-xs text-red-500 font-display animate-slide-in-down">{githubError}</p>
+              {githubAccount.connected ? (
+                <button
+                  type="button"
+                  onClick={handleDisconnectGithub}
+                  className="text-xs px-3 py-2 rounded-lg border border-border text-foreground hover:bg-secondary transition-colors"
+                >
+                  Disconnect
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleConnectGithub}
+                  disabled={isConnectingGithub || isCheckingGithub}
+                  className="text-xs px-3 py-2 rounded-lg bg-gradient-to-r from-slate-800 to-slate-700 text-white hover:from-slate-700 hover:to-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {isConnectingGithub || isCheckingGithub ? "Connecting..." : "Connect GitHub"}
+                </button>
               )}
             </div>
+
+            {githubError && (
+              <p className="text-xs text-red-500 font-display animate-slide-in-down">{githubError}</p>
+            )}
+          </div>
           ) : (
             <div className="rounded-xl border border-border bg-secondary/20 p-4">
               <p className="text-sm text-muted-foreground font-display">
@@ -717,17 +717,17 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
           </div>
 
           {session?.user?.provider === "github" && (
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2 font-display">
-                GitHub Repository (optional)
-              </label>
-              <select
-                value={selectedRepo}
-                onChange={(e) => handleRepoSelect(e.target.value)}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2 font-display">
+              GitHub Repository (optional)
+            </label>
+            <select
+              value={selectedRepo}
+              onChange={(e) => handleRepoSelect(e.target.value)}
                 disabled={!githubAccount.connected || githubRepos.length === 0}
-                className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <option value="">
+              className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <option value="">
                   {!githubAccount.connected
                     ? "Connect GitHub to choose a repository"
                     : isLoadingRepos
@@ -735,19 +735,19 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
                     : githubRepos.length === 0
                     ? "No repositories found"
                     : "Select a repository"}
-                </option>
+              </option>
                 {githubRepos.map((repo) => (
                   <option key={repo.id} value={`https://github.com/${repo.full_name}`}>
                     {repo.full_name}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-muted-foreground mt-2">
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground mt-2">
                 {githubAccount.connected
                   ? "Select a repository from your GitHub account to auto-fill the Git URL."
                   : "Connect GitHub to access your repositories."}
-              </p>
-            </div>
+            </p>
+          </div>
           )}
 
           <div>

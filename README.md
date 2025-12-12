@@ -603,6 +603,7 @@ NASSA_APP_NAME=Nassa
 # SEO Configuration (Optional but recommended)
 NEXT_PUBLIC_APP_URL=https://chack.dev
 GOOGLE_SITE_VERIFICATION=your-google-verification-code
+
 ```
 
 5. **Run development server:**
