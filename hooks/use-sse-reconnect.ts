@@ -237,7 +237,21 @@ export function useSSEReconnect(url: string, options: UseSSEOptions = {}) {
       let allStreamText = ""; // Collect all text to extract report at end
 
       while (true) {
-        const { done, value } = await reader.read();
+        let readResult;
+        try {
+          readResult = await reader.read();
+        } catch (readError) {
+          // Handle abort errors gracefully (expected during cleanup)
+          if (readError instanceof Error && (readError.name === "AbortError" || readError.message.includes("aborted"))) {
+            console.log(`[useSSE] Stream aborted (expected during cleanup)`);
+            setConnectionStatus("disconnected");
+            return; // Exit gracefully
+          }
+          // Re-throw other errors
+          throw readError;
+        }
+
+        const { done, value } = readResult;
 
         if (done) {
           console.log(`[useSSE] Stream ended naturally. Total events: ${eventCount}`);
@@ -396,14 +410,17 @@ export function useSSEReconnect(url: string, options: UseSSEOptions = {}) {
         }
       }
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        console.log("[useSSE] Stream aborted");
+      // Handle abort errors gracefully (expected during cleanup)
+      if (err instanceof Error && (err.name === "AbortError" || err.message.includes("aborted"))) {
+        console.log("[useSSE] Stream aborted (expected during cleanup)");
         
         // If manually stopped, don't reconnect
         if (isManualStopRef.current) {
           setConnectionStatus("disconnected");
           return;
         }
+        // If aborted during cleanup, just exit silently
+        return;
       }
       
       console.error("[useSSE] Stream error:", err);
@@ -527,9 +544,20 @@ export function useSSEReconnect(url: string, options: UseSSEOptions = {}) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
+      // Silently abort any ongoing requests during cleanup
+      try {
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+      } catch (err) {
+        // Ignore abort errors during cleanup - they're expected
+        if (err instanceof Error && (err.name === "AbortError" || err.message.includes("aborted"))) {
+          // Expected during cleanup, ignore
+        } else {
+          console.warn("[useSSE] Error during cleanup:", err);
+        }
       }
+      
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
       }
