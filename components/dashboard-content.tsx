@@ -24,7 +24,11 @@ export default function DashboardContent({ userId }: DashboardContentProps) {
           </div>
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-xl border border-border bg-card p-5 space-y-3 animate-pulse" style={{ animationDelay: `${i * 0.1}s` }}>
+              <div
+                key={i}
+                className="rounded-xl border border-border bg-card p-5 space-y-3 animate-pulse"
+                style={{ animationDelay: `${i * 0.1}s` }}
+              >
                 <div className="h-6 w-48 rounded bg-muted/50" />
                 <div className="h-4 w-full rounded bg-muted/40" />
                 <div className="h-4 w-5/6 rounded bg-muted/40" />
@@ -51,7 +55,7 @@ export default function DashboardContent({ userId }: DashboardContentProps) {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       <ProjectsList orgId={defaultOrg._id} />
     </div>
   );

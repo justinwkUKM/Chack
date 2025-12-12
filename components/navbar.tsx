@@ -3,6 +3,7 @@
 import { useSession, signOut } from "next-auth/react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Moon, Settings, Sun, LogOut, UserCircle, Menu, X } from "lucide-react";
@@ -143,7 +144,13 @@ export function Navbar() {
                   <div className="relative group">
                     <button className="relative h-9 w-9 rounded-full overflow-hidden border border-border shadow-sm transition-transform group-hover:scale-105 ring-2 ring-transparent group-hover:ring-sky-500/30">
                       {userImage ? (
-                        <img src={userImage} alt={displayName} className="h-full w-full object-cover" />
+                        <Image
+                          src={userImage}
+                          alt={displayName}
+                          className="h-full w-full object-cover"
+                          width={36}
+                          height={36}
+                        />
                       ) : (
                         <div className="h-full w-full bg-gradient-to-br from-sky-100 to-cyan-100 dark:from-sky-900 dark:to-cyan-900 flex items-center justify-center text-sky-700 dark:text-sky-300 font-semibold">
                           {displayName.charAt(0).toUpperCase()}
