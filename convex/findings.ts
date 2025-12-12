@@ -216,3 +216,174 @@ export const generateFake = mutation({
   },
 });
 
+/**
+ * Get findings for chatbot (across all accessible assessments)
+ * Returns findings with project and assessment context
+ */
+export const getFindingsForChat = query({
+  args: {
+    userId: v.string(),
+    severity: v.optional(v.string()), // "critical" | "high" | "medium" | "low" | "info"
+    status: v.optional(v.string()), // "open" | "confirmed" | "false_positive" | "resolved"
+    limit: v.optional(v.number()), // Limit number of findings returned (default: 50, max: 100)
+    projectId: v.optional(v.string()), // Optional: filter by specific project
+    assessmentId: v.optional(v.string()), // Optional: filter by specific assessment
+  },
+  handler: async (ctx, args) => {
+    // Step 1: Get user's membership to find organization
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (!membership) {
+      return null; // User not part of any organization
+    }
+
+    const orgId = membership.orgId;
+
+    // Step 2: Get all projects (or specific project if projectId provided)
+    let projects;
+    if (args.projectId) {
+      const project = await ctx.db.get(args.projectId as any);
+      if (!project || !("orgId" in project) || project.orgId !== orgId) {
+        return null; // Project not found or user doesn't have access
+      }
+      projects = [project];
+    } else {
+      projects = await ctx.db
+        .query("projects")
+        .withIndex("by_org", (q) => q.eq("orgId", orgId))
+        .collect();
+    }
+
+    // Step 3: Get all assessments (or specific assessment if assessmentId provided)
+    let allAssessments: any[] = [];
+    if (args.assessmentId) {
+      const assessment = await ctx.db.get(args.assessmentId as any);
+      if (!assessment) {
+        return null;
+      }
+      // Verify assessment belongs to accessible project
+      const projectId = ("projectId" in assessment ? assessment.projectId : "") as string;
+      const project = await ctx.db.get(projectId as any);
+      if (!project || !("orgId" in project) || project.orgId !== orgId) {
+        return null;
+      }
+      allAssessments = [assessment];
+    } else {
+      for (const project of projects) {
+        const assessments = await ctx.db
+          .query("assessments")
+          .withIndex("by_project", (q) => q.eq("projectId", project._id))
+          .collect();
+        allAssessments.push(...assessments);
+      }
+    }
+
+    // Step 4: Get all findings from accessible assessments
+    let allFindings: any[] = [];
+    for (const assessment of allAssessments) {
+      let findingsQuery = ctx.db
+        .query("findings")
+        .withIndex("by_assessment", (q) => q.eq("assessmentId", assessment._id));
+
+      // Apply severity filter if provided
+      if (args.severity) {
+        findingsQuery = ctx.db
+          .query("findings")
+          .withIndex("by_assessment_severity", (q) =>
+            q.eq("assessmentId", assessment._id).eq("severity", args.severity!)
+          );
+      }
+
+      const findings = await findingsQuery.collect();
+
+      // Apply status filter if provided (client-side since we don't have by_assessment_severity_status index)
+      let filteredFindings = findings;
+      if (args.status) {
+        filteredFindings = findings.filter(
+          (f) => ("status" in f ? f.status === args.status : false)
+        );
+      }
+
+      // Enrich findings with project and assessment context
+      const projectId = ("projectId" in assessment ? assessment.projectId : "") as string;
+      const project = await ctx.db.get(projectId as any);
+      const projectName =
+        project && "name" in project ? (project.name as string) : "Unknown Project";
+
+      for (const finding of filteredFindings) {
+        allFindings.push({
+          id: finding._id,
+          title: ("title" in finding ? finding.title : "") as string,
+          description: ("description" in finding ? finding.description : "") as string,
+          severity: ("severity" in finding ? finding.severity : "") as string,
+          status: ("status" in finding ? finding.status : "") as string,
+          cweId: ("cweId" in finding ? finding.cweId : undefined) as string | undefined,
+          cvssScore: ("cvssScore" in finding
+            ? finding.cvssScore
+            : undefined) as number | undefined,
+          location: ("location" in finding ? finding.location : undefined) as string | undefined,
+          remediation: ("remediation" in finding
+            ? finding.remediation
+            : undefined) as string | undefined,
+          assessmentId: assessment._id,
+          assessmentName: ("name" in assessment ? assessment.name : "") as string,
+          projectId: projectId,
+          projectName: projectName,
+          createdAt: ("createdAt" in finding ? finding.createdAt : 0) as number,
+        });
+      }
+    }
+
+    // Step 5: Sort by severity priority (critical > high > medium > low > info) then by CVSS score
+    const severityOrder = { critical: 5, high: 4, medium: 3, low: 2, info: 1 };
+    allFindings.sort((a, b) => {
+      const severityDiff =
+        (severityOrder[b.severity as keyof typeof severityOrder] || 0) -
+        (severityOrder[a.severity as keyof typeof severityOrder] || 0);
+      if (severityDiff !== 0) return severityDiff;
+      return (b.cvssScore || 0) - (a.cvssScore || 0);
+    });
+
+    // Step 6: Apply limit
+    const limit = args.limit ? Math.min(args.limit, 100) : 50;
+    const limitedFindings = allFindings.slice(0, limit);
+
+    // Step 7: Calculate summary statistics
+    const bySeverity = {
+      critical: allFindings.filter((f) => f.severity === "critical").length,
+      high: allFindings.filter((f) => f.severity === "high").length,
+      medium: allFindings.filter((f) => f.severity === "medium").length,
+      low: allFindings.filter((f) => f.severity === "low").length,
+      info: allFindings.filter((f) => f.severity === "info").length,
+    };
+
+    const byStatus = {
+      open: allFindings.filter((f) => f.status === "open").length,
+      confirmed: allFindings.filter((f) => f.status === "confirmed").length,
+      resolved: allFindings.filter((f) => f.status === "resolved").length,
+      false_positive: allFindings.filter((f) => f.status === "false_positive").length,
+    };
+
+    return {
+      findings: limitedFindings,
+      summary: {
+        total: allFindings.length,
+        bySeverity,
+        byStatus,
+      },
+      // Include top CWE IDs
+      topCWEIds: Array.from(
+        new Set(
+          allFindings
+            .filter((f) => f.cweId)
+            .map((f) => f.cweId)
+            .slice(0, 10)
+        )
+      ) as string[],
+    };
+  },
+});
+

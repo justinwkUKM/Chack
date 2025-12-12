@@ -142,3 +142,104 @@ export const deleteProject = mutation({
   },
 });
 
+/**
+ * Get projects for chatbot (with assessment counts and metadata)
+ * Returns projects with enriched data for the AI assistant
+ */
+export const getProjectsForChat = query({
+  args: {
+    userId: v.string(),
+    status: v.optional(v.string()), // "active" | "archived"
+  },
+  handler: async (ctx, args) => {
+    // Step 1: Get user's membership to find organization
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (!membership) {
+      return null; // User not part of any organization
+    }
+
+    const orgId = membership.orgId;
+
+    // Step 2: Get projects for the organization
+    let projects;
+    if (args.status) {
+      projects = await ctx.db
+        .query("projects")
+        .withIndex("by_org_status", (q) =>
+          q.eq("orgId", orgId).eq("status", args.status!)
+        )
+        .order("desc")
+        .collect();
+    } else {
+      projects = await ctx.db
+        .query("projects")
+        .withIndex("by_org", (q) => q.eq("orgId", orgId))
+        .order("desc")
+        .collect();
+    }
+
+    // Step 3: Enrich with assessment counts and recent activity
+    const enrichedProjects = await Promise.all(
+      projects.map(async (project) => {
+        // Get assessment counts by status
+        const allAssessments = await ctx.db
+          .query("assessments")
+          .withIndex("by_project", (q) => q.eq("projectId", project._id))
+          .collect();
+
+        const assessmentsByStatus = {
+          total: allAssessments.length,
+          running: allAssessments.filter((a) =>
+            "status" in a ? a.status === "running" : false
+          ).length,
+          completed: allAssessments.filter((a) =>
+            "status" in a ? a.status === "completed" : false
+          ).length,
+          failed: allAssessments.filter((a) =>
+            "status" in a ? a.status === "failed" : false
+          ).length,
+          pending: allAssessments.filter((a) =>
+            "status" in a ? a.status === "pending" : false
+          ).length,
+        };
+
+        // Get most recent assessment
+        const recentAssessment = allAssessments
+          .sort((a, b) => {
+            const aTime = ("createdAt" in a ? a.createdAt : 0) as number;
+            const bTime = ("createdAt" in b ? b.createdAt : 0) as number;
+            return bTime - aTime;
+          })[0];
+
+        return {
+          id: project._id,
+          name: project.name,
+          description: ("description" in project ? project.description : undefined) || "",
+          status: ("status" in project ? project.status : "active") as string,
+          createdAt: ("createdAt" in project ? project.createdAt : 0) as number,
+          updatedAt: ("updatedAt" in project ? project.updatedAt : 0) as number,
+          assessments: assessmentsByStatus,
+          lastAssessmentAt: recentAssessment
+            ? (("createdAt" in recentAssessment
+                ? recentAssessment.createdAt
+                : 0) as number)
+            : null,
+        };
+      })
+    );
+
+    return {
+      projects: enrichedProjects,
+      total: enrichedProjects.length,
+      byStatus: {
+        active: enrichedProjects.filter((p) => p.status === "active").length,
+        archived: enrichedProjects.filter((p) => p.status === "archived").length,
+      },
+    };
+  },
+});
+

@@ -175,6 +175,134 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Define the tool for getting projects
+    const getProjects = tool({
+      description: `Get all projects for the current user's organization, including project details, assessment counts, and recent activity.
+      Use this tool when the user asks about:
+      - Their projects
+      - What projects they have
+      - List of projects
+      - Project names
+      - Project details
+      - How many projects they have
+      - Project status (active or archived)
+      You can optionally filter by status (active or archived).`,
+      inputSchema: z.object({
+        status: z.enum(["active", "archived"]).optional(),
+      }),
+      execute: async (args) => {
+        try {
+          console.log("\n🔧 === TOOL EXECUTION START ===");
+          console.log("🔧 Tool: getProjects");
+          console.log("🔧 User ID:", session.user.id);
+          console.log("🔧 Args:", args);
+
+          const projects = await fetchQuery(api.projects.getProjectsForChat, {
+            userId: session.user.id,
+            status: args.status,
+          });
+
+          console.log("🔧 Projects retrieved:", projects?.total || 0);
+
+          if (!projects || projects.total === 0) {
+            const result = {
+              success: false,
+              message: "No projects found.",
+            };
+            console.log("🔧 Tool result (no projects):", JSON.stringify(result, null, 2));
+            console.log("🔧 === TOOL EXECUTION END ===\n");
+            return result;
+          }
+
+          const result = {
+            success: true,
+            data: projects,
+          };
+          console.log("🔧 Tool result (success):", JSON.stringify(result, null, 2));
+          console.log("🔧 === TOOL EXECUTION END ===\n");
+          return result;
+        } catch (error) {
+          console.error("🔧 ❌ Tool execution error:", error);
+          const result = {
+            success: false,
+            error: `An error occurred while fetching projects: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          };
+          console.log("🔧 Tool result (error):", JSON.stringify(result, null, 2));
+          console.log("🔧 === TOOL EXECUTION END ===\n");
+          return result;
+        }
+      },
+    });
+
+    // Define the tool for getting findings/vulnerabilities
+    const getFindings = tool({
+      description: `Get security findings/vulnerabilities across all assessments for the current user's organization.
+      Use this tool when the user asks about:
+      - Vulnerabilities found
+      - Security findings
+      - Critical issues
+      - High severity vulnerabilities
+      - CWE vulnerabilities
+      - CVSS scores
+      - Finding status (open, resolved, etc.)
+      - Security issues in their projects
+      You can filter by severity (critical, high, medium, low, info), status (open, confirmed, resolved, false_positive), 
+      specific project, or specific assessment. You can also limit the number of results.`,
+      inputSchema: z.object({
+        severity: z.enum(["critical", "high", "medium", "low", "info"]).optional(),
+        status: z.enum(["open", "confirmed", "resolved", "false_positive"]).optional(),
+        limit: z.number().int().min(1).max(100).default(50).optional(),
+        projectId: z.string().optional(),
+        assessmentId: z.string().optional(),
+      }),
+      execute: async (args) => {
+        try {
+          console.log("\n🔧 === TOOL EXECUTION START ===");
+          console.log("🔧 Tool: getFindings");
+          console.log("🔧 User ID:", session.user.id);
+          console.log("🔧 Args:", args);
+
+          const findings = await fetchQuery(api.findings.getFindingsForChat, {
+            userId: session.user.id,
+            severity: args.severity,
+            status: args.status,
+            limit: args.limit,
+            projectId: args.projectId,
+            assessmentId: args.assessmentId,
+          });
+
+          console.log("🔧 Findings retrieved:", findings?.summary?.total || 0);
+
+          if (!findings || findings.summary.total === 0) {
+            const result = {
+              success: false,
+              message: "No findings found.",
+            };
+            console.log("🔧 Tool result (no findings):", JSON.stringify(result, null, 2));
+            console.log("🔧 === TOOL EXECUTION END ===\n");
+            return result;
+          }
+
+          const result = {
+            success: true,
+            data: findings,
+          };
+          console.log("🔧 Tool result (success):", JSON.stringify(result, null, 2));
+          console.log("🔧 === TOOL EXECUTION END ===\n");
+          return result;
+        } catch (error) {
+          console.error("🔧 ❌ Tool execution error:", error);
+          const result = {
+            success: false,
+            error: `An error occurred while fetching findings: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          };
+          console.log("🔧 Tool result (error):", JSON.stringify(result, null, 2));
+          console.log("🔧 === TOOL EXECUTION END ===\n");
+          return result;
+        }
+      },
+    });
+
     // Add system message to guide the AI
     // Get system prompt from environment variable or use default
     // Handle newlines in env var (replace \n with actual newlines)
@@ -182,13 +310,21 @@ export async function POST(req: NextRequest) {
 
 When users ask about:
 - Organization, credits, plan, subscription, account → use getOrganizationInfo tool
-- Assessments, scans, reports, logs, vulnerabilities → use getAssessments tool
+- Projects, project lists, project details → use getProjects tool
+- Assessments, scans, reports, logs → use getAssessments tool
+- Vulnerabilities, findings, security issues, CWE, CVSS → use getFindings tool
 
-Assessment rules:
-1. Always call getAssessments to retrieve assessment data (status, type, project, findings, logs)
-2. If the user requests a specific assessment, report, or logs → call getAssessments with appropriate filters
-3. After tool results, summarize clearly, highlight severity, impact, and recommended defensive actions
-4. For scan logs and reports, provide a concise summary of key events and recent activity
+Tool usage rules:
+1. Projects: Use getProjects when users ask about their projects, project names, or project status
+2. Assessments: Use getAssessments to retrieve assessment data (status, type, project, findings summary, logs)
+3. Findings: Use getFindings when users ask about specific vulnerabilities, security findings, CWE IDs, CVSS scores, or want to filter by severity/status
+4. Always use the most specific tool for the query (e.g., use getFindings for vulnerability questions, not getAssessments)
+
+Response rules:
+1. After tool results, summarize clearly, highlight severity, impact, and recommended defensive actions
+2. For findings, prioritize critical and high severity issues
+3. For scan logs and reports, provide a concise summary of key events and recent activity
+4. Include project and assessment context when discussing findings
 
 Cybersecurity expertise requirements:
 - Provide high-level, safe guidance in ethical hacking (OWASP, MITRE ATT&CK, PTES) and defensive security (NIST, CIS, Zero Trust)
@@ -223,7 +359,9 @@ Behavior rules:
       messages: messagesWithSystem,
       tools: {
         getOrganizationInfo,
+        getProjects,
         getAssessments,
+        getFindings,
       },
       stopWhen: () => false, // Never stop early - allow tool calls and text generation
       temperature: 0.7,
@@ -255,7 +393,7 @@ Behavior rules:
   } catch (error: any) {
     console.error("Chat API error:", error);
     return new Response(
-      JSON.stringify({
+      JSON.stringify({ 
         error: error.message || "An error occurred while processing your request",
       }),
       { status: 500, headers: { "Content-Type": "application/json" } }
