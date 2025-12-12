@@ -179,5 +179,27 @@ export default defineSchema({
   })
     .index("by_org", ["orgId"])
     .index("by_stripe_subscription", ["stripeSubscriptionId"]),
+
+  // Chat threads table - stores chat sessions/threads for users
+  chatThreads: defineTable({
+    userId: v.string(),
+    title: v.optional(v.string()), // Auto-generated from first message or user-defined
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_updated", ["userId", "updatedAt"]),
+
+  // Chat messages table - stores chat history for users within threads
+  chatMessages: defineTable({
+    threadId: v.string(), // Reference to chatThreads
+    userId: v.string(),
+    role: v.string(), // "user" | "assistant"
+    content: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_thread", ["threadId"])
+    .index("by_thread_created", ["threadId", "createdAt"])
+    .index("by_user", ["userId"]),
 });
 

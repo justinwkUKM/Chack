@@ -528,3 +528,235 @@ export const deleteAssessment = mutation({
   },
 });
 
+/**
+ * Get assessments for chatbot - includes status, types, project names, and summary
+ * Returns assessments across all projects for the user's organization
+ */
+export const getAssessmentsForChat = query({
+  args: { userId: v.string(), limit: v.optional(v.number()), status: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    // Get user's membership to find organization
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (!membership) {
+      return null;
+    }
+
+    // Get all projects for the org
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_org", (q) => q.eq("orgId", membership.orgId))
+      .collect();
+
+    if (projects.length === 0) {
+      return {
+        total: 0,
+        assessments: [],
+        byStatus: { running: 0, completed: 0, failed: 0, pending: 0 },
+      };
+    }
+
+    // Get all assessments across all projects
+    const allAssessments = [];
+    for (const project of projects) {
+      let assessments;
+      if (args.status) {
+        assessments = await ctx.db
+          .query("assessments")
+          .withIndex("by_project_status", (q) =>
+            q.eq("projectId", project._id).eq("status", args.status!)
+          )
+          .order("desc")
+          .take(args.limit || 50);
+      } else {
+        assessments = await ctx.db
+          .query("assessments")
+          .withIndex("by_project", (q) => q.eq("projectId", project._id))
+          .order("desc")
+          .take(args.limit || 50);
+      }
+
+      for (const assessment of assessments) {
+        // Get findings count by severity
+        const findings = await ctx.db
+          .query("findings")
+          .withIndex("by_assessment", (q) => q.eq("assessmentId", assessment._id))
+          .collect();
+
+        // Get scan logs count (last 10 for summary)
+        const scanLogs = await ctx.db
+          .query("scanLogs")
+          .withIndex("by_assessment_timestamp", (q) => q.eq("assessmentId", assessment._id))
+          .order("desc")
+          .take(10);
+
+        // Get results count
+        const results = await ctx.db
+          .query("results")
+          .withIndex("by_assessment", (q) => q.eq("assessmentId", assessment._id))
+          .collect();
+
+        // Type-safe property access
+        const assessmentName = "name" in assessment ? (assessment.name as string) : "";
+        const assessmentDescription = "description" in assessment ? ((assessment.description as string | undefined) || "") : "";
+        const assessmentType = "type" in assessment ? (assessment.type as string) : "";
+        const assessmentTargetType = "targetType" in assessment ? (assessment.targetType as string) : "";
+        const assessmentStatus = "status" in assessment ? (assessment.status as string) : "";
+        const assessmentCreatedAt = "createdAt" in assessment ? (assessment.createdAt as number) : 0;
+        const assessmentStartedAt = "startedAt" in assessment ? ((assessment.startedAt as number | undefined)) : undefined;
+        const assessmentCompletedAt = "completedAt" in assessment ? ((assessment.completedAt as number | undefined)) : undefined;
+
+        allAssessments.push({
+          id: assessment._id,
+          name: assessmentName,
+          description: assessmentDescription,
+          type: assessmentType,
+          targetType: assessmentTargetType,
+          status: assessmentStatus,
+          projectName: project.name,
+          projectId: project._id,
+          createdAt: assessmentCreatedAt,
+          startedAt: assessmentStartedAt,
+          completedAt: assessmentCompletedAt,
+          findings: {
+            total: findings.length,
+            bySeverity: {
+              critical: findings.filter((f) => f.severity === "critical").length,
+              high: findings.filter((f) => f.severity === "high").length,
+              medium: findings.filter((f) => f.severity === "medium").length,
+              low: findings.filter((f) => f.severity === "low").length,
+              info: findings.filter((f) => f.severity === "info").length,
+            },
+          },
+          scanLogs: {
+            total: scanLogs.length,
+            recent: scanLogs.slice(0, 5).map((log) => ({
+              text: log.text,
+              author: log.author,
+              timestamp: log.timestamp,
+              type: log.type,
+            })),
+          },
+          results: {
+            total: results.length,
+            hasReport: results.some((r) => r.type === "scan_data"),
+          },
+        });
+      }
+    }
+
+    // Sort by creation date (most recent first)
+    allAssessments.sort((a, b) => b.createdAt - a.createdAt);
+
+    // Calculate summary statistics
+    const byStatus = {
+      running: allAssessments.filter((a) => a.status === "running").length,
+      completed: allAssessments.filter((a) => a.status === "completed").length,
+      failed: allAssessments.filter((a) => a.status === "failed").length,
+      pending: allAssessments.filter((a) => a.status === "pending").length,
+    };
+
+    return {
+      total: allAssessments.length,
+      assessments: allAssessments,
+      byStatus,
+    };
+  },
+});
+
+/**
+ * Get detailed assessment info including full scan logs and results
+ */
+export const getAssessmentDetailsForChat = query({
+  args: { assessmentId: v.string(), userId: v.string() },
+  handler: async (ctx, args) => {
+    // Verify user has access to this assessment
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (!membership) {
+      return null;
+    }
+
+    const assessment = await ctx.db.get(args.assessmentId as any);
+    if (!assessment) {
+      return null;
+    }
+
+    // Get project to verify org access
+    const projectId = "projectId" in assessment ? (assessment.projectId as string) : "";
+    const project = await ctx.db.get(projectId as any);
+    if (!project || !("orgId" in project) || project.orgId !== membership.orgId) {
+      return null; // User doesn't have access
+    }
+
+    // Get all findings
+    const findings = await ctx.db
+      .query("findings")
+      .withIndex("by_assessment", (q) => q.eq("assessmentId", args.assessmentId))
+      .collect();
+
+    // Get all scan logs
+    const scanLogs = await ctx.db
+      .query("scanLogs")
+      .withIndex("by_assessment_timestamp", (q) => q.eq("assessmentId", args.assessmentId))
+      .order("asc")
+      .collect();
+
+    // Get all results
+    const results = await ctx.db
+      .query("results")
+      .withIndex("by_assessment", (q) => q.eq("assessmentId", args.assessmentId))
+      .collect();
+
+    // Type-safe property access
+    const assessmentName = "name" in assessment ? (assessment.name as string) : "";
+    const assessmentDescription = "description" in assessment ? ((assessment.description as string | undefined) || "") : "";
+    const assessmentType = "type" in assessment ? (assessment.type as string) : "";
+    const assessmentTargetType = "targetType" in assessment ? (assessment.targetType as string) : "";
+    const assessmentStatus = "status" in assessment ? (assessment.status as string) : "";
+    const assessmentCreatedAt = "createdAt" in assessment ? (assessment.createdAt as number) : 0;
+    const assessmentStartedAt = "startedAt" in assessment ? ((assessment.startedAt as number | undefined)) : undefined;
+    const assessmentCompletedAt = "completedAt" in assessment ? ((assessment.completedAt as number | undefined)) : undefined;
+
+    return {
+      assessment: {
+        id: assessment._id,
+        name: assessmentName,
+        description: assessmentDescription,
+        type: assessmentType,
+        targetType: assessmentTargetType,
+        status: assessmentStatus,
+        createdAt: assessmentCreatedAt,
+        startedAt: assessmentStartedAt,
+        completedAt: assessmentCompletedAt,
+      },
+      findings: findings.map((f) => ({
+        title: f.title,
+        severity: f.severity,
+        status: f.status,
+        cweId: f.cweId,
+        cvssScore: f.cvssScore,
+        location: f.location,
+      })),
+      scanLogs: scanLogs.map((log) => ({
+        text: log.text,
+        author: log.author,
+        timestamp: log.timestamp,
+        type: log.type,
+      })),
+      results: results.map((r) => ({
+        type: r.type,
+        data: r.data, // JSON string - can be parsed if needed
+        metadata: r.metadata,
+        createdAt: r.createdAt,
+      })),
+    };
+  },
+});
+

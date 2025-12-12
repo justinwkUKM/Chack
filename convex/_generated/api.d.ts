@@ -10,6 +10,7 @@
 
 import type * as assessments from "../assessments.js";
 import type * as auth from "../auth.js";
+import type * as chatMessages from "../chatMessages.js";
 import type * as credits from "../credits.js";
 import type * as findings from "../findings.js";
 import type * as githubTokens from "../githubTokens.js";
@@ -31,6 +32,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   assessments: typeof assessments;
   auth: typeof auth;
+  chatMessages: typeof chatMessages;
   credits: typeof credits;
   findings: typeof findings;
   githubTokens: typeof githubTokens;

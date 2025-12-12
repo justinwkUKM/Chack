@@ -149,6 +149,44 @@ export const getAssessments = query({
   },
 });
 
+/**
+ * Get organization info for chatbot (name, credits, plan, slug)
+ * Returns only the data needed for the AI assistant
+ */
+export const getOrgInfoForChat = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (!membership) {
+      return null;
+    }
+
+    const org = await ctx.db.get(membership.orgId as any);
+    if (!org) {
+      return null;
+    }
+
+    // Type-safe property access
+    const orgName = "name" in org ? (org.name as string) : "";
+    const orgSlug = "slug" in org ? (org.slug as string) : "";
+    const orgPlan = "plan" in org ? (org.plan as string) : "free";
+    const orgCredits = "credits" in org ? ((org.credits as number | undefined) ?? 0) : 0;
+
+    // Return only the fields needed for the chatbot
+    return {
+      name: orgName,
+      slug: orgSlug,
+      plan: orgPlan,
+      credits: orgCredits,
+      role: membership.role,
+    };
+  },
+});
+
 // Update organization name
 export const updateName = mutation({
   args: {

@@ -5,6 +5,7 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import ProjectsList from "./projects-list";
+import { AiChatbot } from "./ai-chatbot";
 
 interface DashboardContentProps {
   userId: string;
@@ -56,6 +57,7 @@ export default function DashboardContent({ userId }: DashboardContentProps) {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <AiChatbot />
       <ProjectsList orgId={defaultOrg._id} />
     </div>
   );
