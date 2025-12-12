@@ -361,22 +361,21 @@ export default async function HomePage() {
                 </div>
               </div>
 
-              <Link
-                    href={stripeConfigured ? "/auth/login" : "#"}
-                    className={`w-full rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-md transition-all duration-300 ${
-                      stripeConfigured
-                        ? "bg-gradient-to-r from-sky-500 to-cyan-500 shadow-sky-500/30 hover:shadow-lg hover:shadow-sky-500/40 hover:scale-105"
-                        : "bg-gray-400 cursor-not-allowed opacity-50"
-                    }`}
-                    onClick={(e) => {
-                      if (!stripeConfigured) {
-                        e.preventDefault();
-                      }
-                    }}
-                    title={!stripeConfigured ? "Pro plan upgrades are currently unavailable" : undefined}
-                  >
-                    {stripeConfigured ? "Start Free Trial" : "Unavailable"}
-              </Link>
+              {stripeConfigured ? (
+                <Link
+                  href="/auth/login"
+                  className="w-full rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-md transition-all duration-300 bg-gradient-to-r from-sky-500 to-cyan-500 shadow-sky-500/30 hover:shadow-lg hover:shadow-sky-500/40 hover:scale-105"
+                >
+                  Start Free Trial
+                </Link>
+              ) : (
+                <div
+                  className="w-full rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-md transition-all duration-300 bg-gray-400 cursor-not-allowed opacity-50 pointer-events-none"
+                  title="Pro plan upgrades are currently unavailable"
+                >
+                  Unavailable
+                </div>
+              )}
             </div>
               );
             })()}
