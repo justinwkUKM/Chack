@@ -594,6 +594,7 @@ GITHUB_APP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY--
 GITHUB_APP_INSTALLATION_ID=optional-installation-id
 GOOGLE_API_KEY=your-google-generative-ai-key
 GOOGLE_MODEL=gemini-1.5-pro-latest # optional override for the cyber assistant model (v1beta default)
+CHATBOT_SYSTEM_PROMPT=optional-custom-system-prompt-for-ai-chatbot # Use \n for newlines, falls back to default if not set
 
 # Convex
 NEXT_PUBLIC_CONVEX_URL=https://your-project.convex.cloud
