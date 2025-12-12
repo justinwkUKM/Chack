@@ -141,6 +141,7 @@ export async function GET(
     const hasAccess = await verifyAssessmentAccess(assessmentId, userId);
     
     if (!hasAccess) {
+      console.error(`[Report API] ❌ Access denied for user ${userId} to assessment ${assessmentId}`);
       return new Response(
         JSON.stringify({ error: "Access denied. You don't have permission to view this assessment." }),
         {

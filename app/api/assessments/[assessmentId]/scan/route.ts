@@ -97,10 +97,10 @@ export async function POST(
   const emailUsername = userEmail.split('@')[0];
   const userId = session.user.id;
 
-  // Rate limiting
+  // Rate limiting (increased limit for better UX)
   const { checkRateLimit, validateURL, validateGitHubURL } = await import("@/lib/security");
   const rateLimitKey = `scan:${userId}`;
-  const rateLimit = checkRateLimit(rateLimitKey, 5, 60000); // 5 scans per minute
+  const rateLimit = checkRateLimit(rateLimitKey, 20, 60000); // 20 scans per minute (increased from 5)
   
   if (!rateLimit.allowed) {
     return new Response(
@@ -110,7 +110,7 @@ export async function POST(
         headers: {
           "Content-Type": "application/json",
           "Retry-After": "60",
-          "X-RateLimit-Limit": "5",
+          "X-RateLimit-Limit": "20",
           "X-RateLimit-Remaining": "0",
           "X-RateLimit-Reset": rateLimit.resetAt.toString(),
         },
@@ -119,12 +119,35 @@ export async function POST(
   }
 
   // Verify user has access to this assessment (IDOR prevention)
-  const { verifyAssessmentAccess } = await import("@/lib/security");
-  const hasAccess = await verifyAssessmentAccess(assessmentId, userId);
-  
-  if (!hasAccess) {
+  try {
+    const { verifyAssessmentAccess } = await import("@/lib/security");
+    const hasAccess = await verifyAssessmentAccess(assessmentId, userId);
+    
+    if (!hasAccess) {
+      // Always block unauthorized access in both dev and production
+      // The security check now has better error handling and won't fail silently
+      console.error(`[Scan API] ❌ Access denied for user ${userId} to assessment ${assessmentId}`);
+      return new Response(
+        JSON.stringify({ error: "Access denied. You don't have permission to scan this assessment." }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+    
+    // Access granted - log in development only
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[Scan API] ✅ Access granted for user ${userId} to assessment ${assessmentId}`);
+    }
+  } catch (authError) {
+    // If authorization check throws an error, block the request
+    // The verifyAssessmentAccess function now has timeout protection
+    const errorMessage = authError instanceof Error ? authError.message : "Unknown error";
+    console.error(`[Scan API] ❌ Authorization check error: ${errorMessage}`);
+    
     return new Response(
-      JSON.stringify({ error: "Access denied. You don't have permission to scan this assessment." }),
+      JSON.stringify({ error: "Authorization check failed. Please try again." }),
       {
         status: 403,
         headers: { "Content-Type": "application/json" },

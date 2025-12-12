@@ -89,44 +89,83 @@ export function sanitizeInput(input: string, maxLength: number = 1000): string {
 
 /**
  * Verify user has access to an assessment via their organization
+ * Uses Promise.race with timeout to prevent hanging requests
  */
 export async function verifyAssessmentAccess(
   assessmentId: string,
   userId: string
 ): Promise<boolean> {
   try {
-    // Get user's membership
-    const membership = await fetchQuery(api.organizations.getMembershipByUser, {
-      userId,
+    // Add timeout to prevent hanging requests (5 seconds)
+    const timeoutPromise = new Promise<boolean>((_, reject) => {
+      setTimeout(() => reject(new Error("Authorization check timeout")), 5000);
     });
 
-    if (!membership) {
-      return false;
-    }
+    const checkPromise = (async () => {
+      // Get assessment first to check if user created it (fallback check)
+      const assessment = await fetchQuery(api.assessments.get, { assessmentId });
 
-    // Get assessment
-    const assessment = await fetchQuery(api.assessments.get, { assessmentId });
+      if (!assessment) {
+        console.warn(`[Security] Assessment not found: ${assessmentId}`);
+        return false;
+      }
 
-    if (!assessment) {
-      return false;
-    }
+      // Check if user created the assessment (direct ownership check)
+      const createdByUserId = "createdByUserId" in assessment ? (assessment.createdByUserId as string) : "";
+      if (createdByUserId === userId) {
+        // User created the assessment, grant access
+        if (process.env.NODE_ENV === "development") {
+          console.log(`[Security] ✅ Access granted: user ${userId} created assessment ${assessmentId}`);
+        }
+        return true;
+      }
 
-    // Get project to check org access
-    const projectId = "projectId" in assessment ? (assessment.projectId as string) : "";
-    if (!projectId) {
-      return false;
-    }
+      // Get user's membership for org-based access check
+      const membership = await fetchQuery(api.organizations.getMembershipByUser, {
+        userId,
+      });
 
-    const project = await fetchQuery(api.projects.get, { projectId: projectId });
+      if (!membership) {
+        console.warn(`[Security] No membership found for user: ${userId}`);
+        return false;
+      }
 
-    if (!project || !("orgId" in project)) {
-      return false;
-    }
+      // Get project to check org access
+      const projectId = "projectId" in assessment ? (assessment.projectId as string) : "";
+      if (!projectId) {
+        console.warn(`[Security] No projectId in assessment: ${assessmentId}`);
+        return false;
+      }
 
-    // Verify project belongs to user's organization
-    return project.orgId === membership.orgId;
+      const project = await fetchQuery(api.projects.get, { projectId: projectId });
+
+      if (!project || !("orgId" in project)) {
+        console.warn(`[Security] Project not found or no orgId: ${projectId}`);
+        return false;
+      }
+
+      // Verify project belongs to user's organization
+      const hasAccess = project.orgId === membership.orgId;
+      
+      if (hasAccess) {
+        // Only log success in development to reduce noise
+        if (process.env.NODE_ENV === "development") {
+          console.log(`[Security] ✅ Access granted for user ${userId} to assessment ${assessmentId} (org match)`);
+        }
+      } else {
+        // Log access denial (important for security)
+        console.warn(`[Security] ❌ Access denied: user ${userId} (org: ${membership.orgId}) cannot access assessment ${assessmentId} (project org: ${project.orgId})`);
+      }
+      
+      return hasAccess;
+    })();
+
+    // Race between the check and timeout
+    return await Promise.race([checkPromise, timeoutPromise]);
   } catch (error) {
-    console.error("Error verifying assessment access:", error);
+    // Log error details for debugging (but don't expose sensitive info)
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error(`[Security] Authorization check failed for assessment ${assessmentId}:`, errorMessage);
     return false;
   }
 }
