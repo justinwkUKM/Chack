@@ -371,7 +371,7 @@ export function AiChatbot() {
               <MessageSquare className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-foreground font-display">AI Assistant</h3>
+              <h3 className="text-sm font-semibold text-foreground font-display">AI Assistant (Chacky)</h3>
               <p className="text-[10px] text-muted-foreground">
                 {currentThreadId && threads.find((t) => t._id === currentThreadId)
                   ? threads.find((t) => t._id === currentThreadId)?.title || "New Chat"
