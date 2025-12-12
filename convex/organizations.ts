@@ -41,6 +41,19 @@ export const get = query({
   },
 });
 
+// Get membership for a user (returns first membership)
+export const getMembershipByUser = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+    
+    return membership ? { orgId: membership.orgId, role: membership.role } : null;
+  },
+});
+
 // Get all members of an organization
 export const getMembers = query({
   args: { orgId: v.string() },

@@ -431,10 +431,44 @@ export default function AssessmentsList({ projectId }: AssessmentsListProps) {
         return;
       }
 
-      // Normalize URL for blackbox (add https:// if missing)
+      // Validate and normalize URL for blackbox
       let normalizedUrl = targetUrl.trim();
-      if (finalType === "blackbox" && !normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-        normalizedUrl = `https://${normalizedUrl}`;
+      if (finalType === "blackbox") {
+        // Import validation function
+        const { validateURL } = await import("@/lib/security");
+        
+        // Add https:// if missing
+        if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+          normalizedUrl = `https://${normalizedUrl}`;
+        }
+        
+        // Validate URL to prevent malicious inputs
+        if (!validateURL(normalizedUrl)) {
+          showError("🚨 Invalid URL format. Please enter a valid HTTP/HTTPS URL.");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+      
+      // Validate GitHub URL for whitebox
+      if (finalType === "whitebox" && normalizedUrl) {
+        const { validateGitHubURL } = await import("@/lib/security");
+        if (!validateGitHubURL(normalizedUrl)) {
+          showError("🚨 Invalid GitHub repository URL. Please enter a valid GitHub repository URL.");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+      
+      // Sanitize inputs
+      const { sanitizeInput } = await import("@/lib/security");
+      const sanitizedName = sanitizeInput(assessmentName, 200);
+      const sanitizedDescription = sanitizeInput(assessmentDescription || "", 1000);
+      
+      if (sanitizedName !== assessmentName || sanitizedDescription !== (assessmentDescription || "")) {
+        showError("🚨 Invalid characters detected in input. Please check your input.");
+        setIsSubmitting(false);
+        return;
       }
 
       // Create assessment (status will be "running")

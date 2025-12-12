@@ -158,6 +158,12 @@ export async function refreshInstallationToken(): Promise<
     return null;
   }
 
+  // Validate installation ID to prevent path traversal
+  const { validateGitHubInstallationId } = await import("./security");
+  if (!validateGitHubInstallationId(credentials.installationId)) {
+    throw new Error("Invalid GitHub installation ID");
+  }
+
   const jwtToken = createGitHubAppJwt(credentials.appId, credentials.privateKey);
   const response = await fetch(
     `https://api.github.com/app/installations/${credentials.installationId}/access_tokens`,

@@ -122,28 +122,36 @@ export async function GET(
   }
 
   const userEmail = session.user.email;
+  const userId = session.user.id;
   
-  if (!userEmail) {
-    return new Response(JSON.stringify({ error: "User email not found in session" }), {
+  if (!userEmail || !userId) {
+    return new Response(JSON.stringify({ error: "User information not found in session" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
   }
 
-  // Extract username from email
-  const userId = userEmail.split('@')[0];
-  
   // Get report type from query params (optional)
   const searchParams = request.nextUrl.searchParams;
   const reportType = (searchParams.get('type') as 'whitebox' | 'blackbox') || 'blackbox';
   
   try {
-    // First, fetch the assessment to get the sessionId
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`[Report API] ===== FETCHING REPORT FROM SESSION =====`);
-    console.log(`[Report API] Assessment ID: ${assessmentId}`);
-    console.log(`[Report API] User ID: ${userId}`);
-    console.log(`[Report API] Report Type: ${reportType}`);
+    // First, verify user has access to this assessment (IDOR prevention)
+    const { verifyAssessmentAccess } = await import("@/lib/security");
+    const hasAccess = await verifyAssessmentAccess(assessmentId, userId);
+    
+    if (!hasAccess) {
+      return new Response(
+        JSON.stringify({ error: "Access denied. You don't have permission to view this assessment." }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+    
+    // Extract username from email for API calls
+    const emailUsername = userEmail.split('@')[0];
     
     // Get assessment from Convex to retrieve sessionId
     const assessment = await fetchQuery(api.assessments.get, { assessmentId });
@@ -170,8 +178,8 @@ export async function GET(
     console.log(`[Report API] Session ID from database: ${sessionId}`);
     console.log(`${"=".repeat(80)}\n`);
 
-    // Fetch session data
-    const sessionUrl = `${API_URL}/apps/${APP_NAME}/users/${userId}/sessions/${sessionId}`;
+    // Fetch session data (use emailUsername for API, not userId)
+    const sessionUrl = `${API_URL}/apps/${APP_NAME}/users/${emailUsername}/sessions/${sessionId}`;
     console.log(`[Report API] Fetching session from: ${sessionUrl}`);
     
     const sessionResponse = await fetch(sessionUrl, {

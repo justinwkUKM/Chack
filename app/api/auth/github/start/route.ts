@@ -42,6 +42,7 @@ export async function GET(request: Request) {
   const redirectUrl = buildGitHubAuthorizeUrl(state);
 
   const response = NextResponse.redirect(redirectUrl);
+  // Secure cookie settings
   response.cookies.set(
     "github_oauth_state",
     createStateCookie(state, returnTo, reauthReason),

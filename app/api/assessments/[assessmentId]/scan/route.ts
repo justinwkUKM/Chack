@@ -94,7 +94,43 @@ export async function POST(
   }
 
   // Extract username from email (e.g., "waqasobeidy@example.com" -> "waqasobeidy")
-  const userId = userEmail.split('@')[0];
+  const emailUsername = userEmail.split('@')[0];
+  const userId = session.user.id;
+
+  // Rate limiting
+  const { checkRateLimit, validateURL, validateGitHubURL } = await import("@/lib/security");
+  const rateLimitKey = `scan:${userId}`;
+  const rateLimit = checkRateLimit(rateLimitKey, 5, 60000); // 5 scans per minute
+  
+  if (!rateLimit.allowed) {
+    return new Response(
+      JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": "60",
+          "X-RateLimit-Limit": "5",
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": rateLimit.resetAt.toString(),
+        },
+      }
+    );
+  }
+
+  // Verify user has access to this assessment (IDOR prevention)
+  const { verifyAssessmentAccess } = await import("@/lib/security");
+  const hasAccess = await verifyAssessmentAccess(assessmentId, userId);
+  
+  if (!hasAccess) {
+    return new Response(
+      JSON.stringify({ error: "Access denied. You don't have permission to scan this assessment." }),
+      {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
 
   // Safely parse request body for targetUrl, gitRepoUrl, and type
   let body: any = {};
@@ -104,7 +140,6 @@ export async function POST(
       body = JSON.parse(text);
     }
   } catch (error) {
-    console.error("[Scan API] Failed to parse request body:", error);
     return new Response(JSON.stringify({ error: "Invalid JSON in request body" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
@@ -112,6 +147,21 @@ export async function POST(
   }
 
   const { targetUrl, gitRepoUrl, type } = body;
+
+  // Validate URLs
+  if (targetUrl && !validateURL(targetUrl)) {
+    return new Response(JSON.stringify({ error: "Invalid target URL" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (gitRepoUrl && !validateGitHubURL(gitRepoUrl)) {
+    return new Response(JSON.stringify({ error: "Invalid GitHub repository URL" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   if (!targetUrl && !gitRepoUrl) {
     return new Response(JSON.stringify({ error: "targetUrl or gitRepoUrl is required" }), {
@@ -128,7 +178,9 @@ export async function POST(
   const sessionId = `${scanType}_${assessmentId}_${timestamp}`;
 
   try {
-    console.log(`\n${"=".repeat(80)}`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[Scan API] Starting scan for assessment: ${assessmentId}`);
+    }
     console.log(`[Scan API] ===== STARTING NEW SCAN REQUEST =====`);
     console.log(`[Scan API] Assessment ID: ${assessmentId}`);
     console.log(`[Scan API] User ID (email): ${userId}`);

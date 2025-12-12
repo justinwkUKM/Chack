@@ -71,11 +71,19 @@ export default async function HomePage() {
       ],
     };
 
+    // Sanitize JSON to prevent XSS
+    const sanitizedJSON = JSON.stringify(structuredData)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#x27;");
+
     return (
       <>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+          dangerouslySetInnerHTML={{ __html: sanitizedJSON }}
         />
       <main className="bg-background px-4 py-12 animate-fade-in text-foreground relative overflow-hidden min-h-screen">
         <CyberGrid />

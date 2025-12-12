@@ -115,8 +115,12 @@ export async function GET(request: Request) {
 
     cookieStore.delete("github_oauth_state");
     return redirectWithSuccess(returnTo, reauthReason ? "reauthorized" : "connected", reauthReason);
-  } catch (callbackError) {
-    console.error("GitHub OAuth callback failed", callbackError);
+  } catch (callbackError: unknown) {
+    // Log error without exposing sensitive details
+    if (process.env.NODE_ENV === "development") {
+      console.error("[GitHub Callback] Error:", callbackError instanceof Error ? callbackError.message : "Unknown error");
+    }
+    // Generic error message to prevent information disclosure
     return redirectWithError("GitHub authorization failed. Please try again.", returnTo);
   }
 }

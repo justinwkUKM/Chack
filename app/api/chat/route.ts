@@ -14,46 +14,57 @@ export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
   try {
-    console.log("\n=== CHAT API REQUEST START ===");
-    
     // Verify authentication
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      console.log("❌ No session found");
       return new Response("Unauthorized", { status: 401 });
     }
-    console.log("✅ User authenticated:", session.user.id);
+
+    // Rate limiting
+    const { checkRateLimit } = await import("@/lib/security");
+    const rateLimitKey = `chat:${session.user.id}`;
+    const rateLimit = checkRateLimit(rateLimitKey, 30, 60000); // 30 requests per minute
+    
+    if (!rateLimit.allowed) {
+      return new Response(
+        JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": "60",
+            "X-RateLimit-Limit": "30",
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": rateLimit.resetAt.toString(),
+          },
+        }
+      );
+    }
 
     // Check if Google AI is configured
     if (!process.env.GOOGLE_API_KEY && !process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-      console.log("❌ Google AI not configured");
       return new Response(
         JSON.stringify({ error: "AI service is not configured. Please contact support." }),
         { status: 503, headers: { "Content-Type": "application/json" } }
       );
     }
-    console.log("✅ Google AI configured");
 
     const body = await req.json();
     const messages = body.messages;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      console.log("❌ No messages in request");
       return new Response(
         JSON.stringify({ error: "Messages are required" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    console.log("📨 Received messages:", JSON.stringify(messages, null, 2));
-
-    // Convert messages to ModelMessages format
+    // Sanitize and validate messages
+    const { sanitizeInput } = await import("@/lib/security");
     const modelMessages = messages.map((msg: any) => ({
-      role: msg.role,
-      content: msg.content,
+      role: msg.role === "user" || msg.role === "assistant" ? msg.role : "user",
+      content: sanitizeInput(msg.content || "", 10000), // Max 10KB per message
     }));
-    
-    console.log("🔄 Converted to model messages:", JSON.stringify(modelMessages, null, 2));
 
     // Initialize Google AI model
     const model = google("gemini-2.5-flash");
@@ -72,43 +83,31 @@ export async function POST(req: NextRequest) {
       inputSchema: z.object({}), // No parameters needed - uses session user ID
       execute: async (_args: {}) => {
         try {
-          console.log("\n🔧 === TOOL EXECUTION START ===");
-          console.log("🔧 Tool: getOrganizationInfo");
-          console.log("🔧 User ID:", session.user.id);
-          
           // Call Convex directly to get organization info
           const orgInfo = await fetchQuery(api.organizations.getOrgInfoForChat, {
             userId: session.user.id,
           });
 
-          console.log("🔧 Database query result:", JSON.stringify(orgInfo, null, 2));
-
           if (!orgInfo) {
-            const result = {
+            return {
               success: false,
               message: "No organization found. Please complete onboarding first.",
             };
-            console.log("🔧 Tool result (no org):", JSON.stringify(result, null, 2));
-            console.log("🔧 === TOOL EXECUTION END ===\n");
-            return result;
           }
 
-          const result = {
+          return {
             success: true,
             data: orgInfo,
           };
-          console.log("🔧 Tool result (success):", JSON.stringify(result, null, 2));
-          console.log("🔧 === TOOL EXECUTION END ===\n");
-          return result;
         } catch (error) {
-          console.error("🔧 ❌ Tool execution error:", error);
-          const result = {
+          // Log error without sensitive data
+          if (process.env.NODE_ENV === "development") {
+            console.error("Tool execution error:", error instanceof Error ? error.message : "Unknown error");
+          }
+          return {
             success: false,
-            error: `An error occurred while fetching organization information: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            error: "An error occurred while fetching organization information.",
           };
-          console.log("🔧 Tool result (error):", JSON.stringify(result, null, 2));
-          console.log("🔧 === TOOL EXECUTION END ===\n");
-          return result;
         }
       },
     });
@@ -132,45 +131,31 @@ export async function POST(req: NextRequest) {
       }),
       execute: async (args) => {
         try {
-          console.log("\n🔧 === TOOL EXECUTION START ===");
-          console.log("🔧 Tool: getAssessments");
-          console.log("🔧 User ID:", session.user.id);
-          console.log("🔧 Args:", args);
-          
           const assessments = await fetchQuery(api.assessments.getAssessmentsForChat, {
             userId: session.user.id,
             limit: args.limit,
             status: args.status,
           });
 
-          console.log("🔧 Assessments retrieved:", assessments?.total || 0);
-
           if (!assessments || assessments.total === 0) {
-            const result = {
+            return {
               success: false,
               message: "No assessments found.",
             };
-            console.log("🔧 Tool result (no assessments):", JSON.stringify(result, null, 2));
-            console.log("🔧 === TOOL EXECUTION END ===\n");
-            return result;
           }
 
-          const result = {
+          return {
             success: true,
             data: assessments,
           };
-          console.log("🔧 Tool result (success):", JSON.stringify(result, null, 2));
-          console.log("🔧 === TOOL EXECUTION END ===\n");
-          return result;
         } catch (error) {
-          console.error("🔧 ❌ Tool execution error:", error);
-          const result = {
+          if (process.env.NODE_ENV === "development") {
+            console.error("Tool execution error:", error instanceof Error ? error.message : "Unknown error");
+          }
+          return {
             success: false,
-            error: `An error occurred while fetching assessments: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            error: "An error occurred while fetching assessments.",
           };
-          console.log("🔧 Tool result (error):", JSON.stringify(result, null, 2));
-          console.log("🔧 === TOOL EXECUTION END ===\n");
-          return result;
         }
       },
     });
@@ -349,11 +334,7 @@ Behavior rules:
     // Prepend system message to conversation
     const messagesWithSystem = [systemMessage, ...modelMessages];
     
-    console.log("💬 Total messages to model:", messagesWithSystem.length);
-
     // Stream the response with tools
-    console.log("🚀 Starting streamText...");
-    
     const result = await streamText({
       model,
       messages: messagesWithSystem,
@@ -385,16 +366,16 @@ Behavior rules:
       },
     });
 
-    console.log("✅ streamText created, returning response");
-    console.log("=== CHAT API REQUEST END ===\n");
-
     // Return streaming response
     return result.toTextStreamResponse();
   } catch (error: any) {
-    console.error("Chat API error:", error);
+    // Log error without exposing sensitive details
+    if (process.env.NODE_ENV === "development") {
+      console.error("Chat API error:", error instanceof Error ? error.message : "Unknown error");
+    }
     return new Response(
-      JSON.stringify({ 
-        error: error.message || "An error occurred while processing your request",
+      JSON.stringify({
+        error: "An error occurred while processing your request. Please try again.",
       }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
