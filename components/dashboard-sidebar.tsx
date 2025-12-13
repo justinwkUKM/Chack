@@ -9,8 +9,8 @@ import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Settings, Home, PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Settings, Home, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { motion } from "framer-motion";
 
 // Mini projects list for sidebar
 function ProjectsList({ orgId }: { orgId: string }) {
@@ -49,11 +49,15 @@ function ProjectsList({ orgId }: { orgId: string }) {
 interface DashboardSidebarProps {
   currentOrgId: string;
   userId: string;
+  isMobile?: boolean;
+  onClose?: () => void;
 }
 
 export default function DashboardSidebar({
   currentOrgId,
   userId,
+  isMobile = false,
+  onClose,
 }: DashboardSidebarProps) {
   const { data: session } = useSession();
   const pathname = usePathname();
@@ -76,14 +80,16 @@ export default function DashboardSidebar({
     <motion.aside
       initial={false}
       animate={{
-        width: isCollapsed ? "64px" : "256px",
+        width: isMobile ? "100%" : isCollapsed ? "64px" : "256px",
       }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
-      className="h-full border-r border-border/80 bg-card/90 backdrop-blur text-foreground overflow-hidden flex flex-col relative group"
+      className={`h-full border-r border-border/80 bg-card/90 backdrop-blur text-foreground overflow-hidden flex flex-col relative group shadow-lg md:shadow-none ${
+        isMobile ? "rounded-r-2xl" : ""
+      }`}
     >
       <div className="overflow-y-auto flex-1 p-4 space-y-6">
         {/* Toggle Button - Always at top left */}
-        <div className="pb-4 border-b border-border">
+        <div className="pb-4 border-b border-border flex items-center justify-between">
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
             className={`w-10 h-10 rounded-lg flex items-center justify-center hover:bg-secondary/80 transition-all duration-200 group ${
@@ -98,6 +104,15 @@ export default function DashboardSidebar({
               <PanelLeftClose className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
             )}
           </button>
+          {isMobile && onClose && (
+            <button
+              onClick={onClose}
+              className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-secondary/80 transition-all duration-200"
+              aria-label="Close sidebar"
+            >
+              <X className="w-5 h-5 text-muted-foreground" />
+            </button>
+          )}
         </div>
         {/* Navigation Links */}
         {!isCollapsed && (
@@ -110,11 +125,13 @@ export default function DashboardSidebar({
                   : "text-foreground hover:bg-secondary/80"
               }`}
             >
-              <Home className={`w-5 h-5 transition-colors flex-shrink-0 ${
-                pathname === "/dashboard"
-                  ? "text-primary"
-                  : "text-muted-foreground group-hover:text-primary"
-              }`} />
+              <Home
+                className={`w-5 h-5 transition-colors flex-shrink-0 ${
+                  pathname === "/dashboard"
+                    ? "text-primary"
+                    : "text-muted-foreground group-hover:text-primary"
+                }`}
+              />
               <span className="truncate">Dashboard</span>
             </Link>
           </div>
@@ -146,9 +163,7 @@ export default function DashboardSidebar({
                 <div className="text-sm font-medium text-foreground truncate">
                   {user.name || user.email}
                 </div>
-                <div className="text-xs text-muted-foreground truncate">
-                  {user.email}
-                </div>
+                <div className="text-xs text-muted-foreground truncate">{user.email}</div>
               </div>
               <Settings className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             </Link>
@@ -159,9 +174,7 @@ export default function DashboardSidebar({
         {!isCollapsed && (
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Organization
-              </h2>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Organization</h2>
               {allOrgs && allOrgs.length > 1 && (
                 <button
                   onClick={() => setShowOrgSwitcher(!showOrgSwitcher)}
@@ -178,9 +191,7 @@ export default function DashboardSidebar({
                     <div className="font-semibold text-foreground font-display text-base truncate">
                       {currentOrg.name}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      AI coverage for your workspace
-                    </p>
+                    <p className="text-xs text-muted-foreground">AI coverage for your workspace</p>
                   </div>
                   <div className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary/90 flex-shrink-0">
                     Active
@@ -194,9 +205,7 @@ export default function DashboardSidebar({
                     >
                       {currentOrg.plan}
                     </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      Optimized for fast AI scans
-                    </span>
+                    <span className="text-[11px] text-muted-foreground">Optimized for fast AI scans</span>
                   </div>
                 )}
                 {"credits" in currentOrg && (
@@ -206,9 +215,7 @@ export default function DashboardSidebar({
                       <div className="flex items-center gap-2">
                         <span
                           className={`font-semibold px-2 py-0.5 rounded-full transition-all duration-300 text-xs ${
-                            creditsValue < 3
-                              ? "text-yellow-700 bg-yellow-50"
-                              : "text-sky-700 bg-sky-50"
+                            creditsValue < 3 ? "text-yellow-700 bg-yellow-50" : "text-sky-700 bg-sky-50"
                           }`}
                           title="Credits used when running AI scans"
                         >
@@ -223,9 +230,7 @@ export default function DashboardSidebar({
                         style={{ width: `${creditPct}%` }}
                       />
                     </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      Keep a small buffer to avoid scan interruptions.
-                    </div>
+                    <div className="text-[11px] text-muted-foreground">Keep a small buffer to avoid scan interruptions.</div>
                   </div>
                 )}
               </div>
@@ -239,8 +244,8 @@ export default function DashboardSidebar({
                     href="/dashboard"
                     className={`block rounded-xl px-4 py-2.5 text-sm transition-all duration-300 font-display border ${
                       org._id === currentOrgId
-                      ? "bg-gradient-to-r from-sky-500/20 to-cyan-500/20 text-sky-800 border-sky-300"
-                      : "text-foreground border-border bg-card hover:bg-secondary"
+                        ? "bg-gradient-to-r from-sky-500/20 to-cyan-500/20 text-sky-800 border-sky-300"
+                        : "text-foreground border-border bg-card hover:bg-secondary"
                     }`}
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
@@ -260,15 +265,11 @@ export default function DashboardSidebar({
         {/* Quick Stats */}
         {!isCollapsed && stats && (
           <div className="space-y-3">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Overview
-            </h2>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Overview</h2>
             <div className="space-y-2">
               <div className="flex items-center justify-between rounded-xl px-4 py-3 border border-border bg-card">
                 <span className="text-sm text-foreground font-display">Projects</span>
-                <span className="text-lg font-display font-bold text-sky-600">
-                  {stats.projectsCount}
-                </span>
+                <span className="text-lg font-display font-bold text-sky-600">{stats.projectsCount}</span>
               </div>
             </div>
           </div>
@@ -278,9 +279,7 @@ export default function DashboardSidebar({
         {!isCollapsed && (
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xs font-semibold text-muted-foreground uppercase font-display tracking-wide">
-                Members
-              </h2>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase font-display tracking-wide">Members</h2>
               <button
                 onClick={() => setShowMembers(!showMembers)}
                 className="text-xs text-muted-foreground hover:text-primary transition-colors duration-300 font-display"
@@ -303,12 +302,8 @@ export default function DashboardSidebar({
                         {member.name?.[0]?.toUpperCase() || member.email[0]?.toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm text-foreground truncate font-display">
-                          {member.name || member.email}
-                        </div>
-                        <div className="text-xs text-muted-foreground capitalize">
-                          {member.role}
-                        </div>
+                        <div className="text-sm text-foreground truncate font-display">{member.name || member.email}</div>
+                        <div className="text-xs text-muted-foreground capitalize">{member.role}</div>
                       </div>
                     </div>
                   ))
@@ -326,9 +321,7 @@ export default function DashboardSidebar({
         {/* Projects (Targets) List */}
         {!isCollapsed && (
           <div>
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              Projects
-            </h2>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Projects</h2>
             <ProjectsList orgId={currentOrgId} />
           </div>
         )}
@@ -336,4 +329,3 @@ export default function DashboardSidebar({
     </motion.aside>
   );
 }
-
