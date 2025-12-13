@@ -94,16 +94,16 @@ export default function ProjectsList({ orgId }: ProjectsListProps) {
     <>
       {ToastComponent}
       <section className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
           <h2 className="text-2xl font-display font-bold text-foreground">Projects</h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground">
             Track assessments, scan readiness, and jump into the next AI run.
           </p>
         </div>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
-          className="rounded-lg bg-gradient-to-r from-sky-500 to-cyan-500 px-5 py-2.5 text-sm font-semibold text-white hover:from-sky-400 hover:to-cyan-400 hover:scale-105 hover:shadow-lg hover:shadow-sky-500/30 transition-all duration-300 font-display"
+          className="w-full sm:w-auto rounded-lg bg-gradient-to-r from-sky-500 to-cyan-500 px-5 py-2.5 text-sm font-semibold text-white hover:from-sky-400 hover:to-cyan-400 hover:scale-105 hover:shadow-lg hover:shadow-sky-500/30 transition-all duration-300 font-display"
         >
           {showCreateForm ? "Cancel" : "+ New Project"}
         </button>
