@@ -3,7 +3,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -51,30 +51,7 @@ export function AiChatbot() {
     }
   }, [messages.length]); // Only trigger on message count change, not content
 
-  // Load threads on mount
-  useEffect(() => {
-    if (session) {
-      loadThreads();
-    }
-  }, [session]);
-
-  const loadThreads = async () => {
-    try {
-      const response = await fetch("/api/chat-history");
-      if (response.ok) {
-        const threadsData = await response.json();
-        setThreads(threadsData);
-        // If there are threads, load the most recent one
-        if (threadsData.length > 0 && !currentThreadId) {
-          loadThreadMessages(threadsData[0]._id);
-        }
-      }
-    } catch (error) {
-      console.error("Error loading threads:", error);
-    }
-  };
-
-  const loadThreadMessages = async (threadId: string) => {
+  const loadThreadMessages = useCallback(async (threadId: string) => {
     try {
       const response = await fetch(`/api/chat-history?threadId=${threadId}`);
       if (response.ok) {
@@ -92,7 +69,30 @@ export function AiChatbot() {
     } catch (error) {
       console.error("Error loading thread messages:", error);
     }
-  };
+  }, []);
+
+  const loadThreads = useCallback(async () => {
+    try {
+      const response = await fetch("/api/chat-history");
+      if (response.ok) {
+        const threadsData = await response.json();
+        setThreads(threadsData);
+        // If there are threads, load the most recent one
+        if (threadsData.length > 0 && !currentThreadId) {
+          loadThreadMessages(threadsData[0]._id);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading threads:", error);
+    }
+  }, [currentThreadId, loadThreadMessages]);
+
+  // Load threads on mount
+  useEffect(() => {
+    if (session) {
+      loadThreads();
+    }
+  }, [session, loadThreads]);
 
   const createNewThread = async (clearMessages: boolean = true): Promise<string | null> => {
     try {
@@ -362,7 +362,7 @@ export function AiChatbot() {
         </div>
 
         {/* Minimal Header */}
-        <div className="relative p-3 border-b border-border/40 flex justify-between items-center group">
+        <div className="relative p-3 border-b border-border/40 flex justify-between items-center gap-2 group flex-wrap sm:flex-nowrap">
           <div 
             onClick={() => setIsOpen(!isOpen)}
             className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity flex-1"
@@ -508,12 +508,11 @@ export function AiChatbot() {
                 )}
               </AnimatePresence>
 
-              <div 
+              <div
                 ref={messagesContainerRef}
-                className="h-[400px] overflow-y-auto overflow-x-hidden p-4 space-y-3 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
-                style={{ 
+                className="max-h-[65vh] min-h-[260px] sm:max-h-[420px] overflow-y-auto overflow-x-hidden p-3 sm:p-4 space-y-3 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
+                style={{
                   scrollBehavior: "smooth",
-                  maxHeight: "400px",
                 }}
                 onWheel={(e) => {
                   // Prevent scroll from bubbling to parent page
@@ -656,22 +655,23 @@ export function AiChatbot() {
               {/* Minimal Input Area */}
               <form
                 onSubmit={handleSubmit}
-                className="relative p-3 border-t border-border/40 flex gap-2 bg-background/30"
+                className="relative p-3 border-t border-border/40 flex flex-col gap-3 bg-background/30 sm:flex-row sm:items-center"
               >
-                <motion.input
+                <motion.textarea
                   whileFocus={{ scale: 1.01 }}
-                  className="flex-1 bg-background/50 border border-border/60 rounded-lg px-3.5 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary/30 focus:border-primary/50 outline-none transition-all placeholder:text-muted-foreground/60"
+                  className="flex-1 bg-background/50 border border-border/60 rounded-lg px-3.5 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary/30 focus:border-primary/50 outline-none transition-all placeholder:text-muted-foreground/60 min-h-[46px] resize-y sm:min-h-[42px]"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Ask about security assessments..."
                   disabled={isLoading}
+                  rows={1}
                 />
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   type="submit"
                   disabled={isLoading || !input.trim()}
-                  className="bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-white p-2 rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-sky-500/20 flex items-center justify-center min-w-[36px]"
+                  className="bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-white px-4 py-2 rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-sky-500/20 flex items-center justify-center min-w-[36px] sm:min-w-[48px]"
                 >
                   {isLoading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
